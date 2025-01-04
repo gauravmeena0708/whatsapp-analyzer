@@ -62,20 +62,16 @@ class Analyzer:
 
     def analyze_message_length(self, column_name="mlen"):
         """Analyzes the distribution of message lengths."""
-        print("\nMessage Length Distribution:")
         series = self.chat_data[column_name].describe()
-        print(series)
         return series  # Now it returns the pandas Series
 
     def analyze_media_count(self, column_name="mediacount"):
         """Counts the total number of media messages."""
         total_media = self.chat_data[column_name].sum()
-        print(f"\nTotal Media Messages: {total_media}")
 
     def analyze_emoji_usage(self, column_name="emojicount"):
         """Analyzes emoji usage (total count, most frequent)."""
         total_emojis = self.chat_data[column_name].sum()
-        print(f"\nTotal Emojis Used: {total_emojis}")
 
         all_emojis = [e for sublist in self.chat_data["emoji"] for e in sublist]
         emoji_counts = pd.Series(all_emojis).value_counts()
@@ -95,9 +91,6 @@ class Analyzer:
         Returns:
             dict: Path to the saved plot image.
         """
-        print(self.chat_data.columns)
-        print(self.chat_data['dow'].unique())
-        print(x, y)
 
         try:
             # Grouping the data

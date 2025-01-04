@@ -40,10 +40,6 @@ class PDFGenerator:
         for th in soup.find_all('th'):
             th["style"] = "font-size:10px;padding:2px;text-align:left;"
 
-        header = soup.new_tag('h1')
-        header.string = 'WhatsApp Chat Analysis Report'
-        body_tag.insert(0, header)
-
         return str(soup)
 
     def generate_pdf(self, content, wkhtmltopdf_path=None):
@@ -79,4 +75,4 @@ class PDFGenerator:
             print(f"Error generating PDF: {e}")
             traceback.print_exc()
 
-        os.remove(html_filename)  # Clean up temporary HTML file
+        #os.remove(html_filename)  # Clean up temporary HTML file
