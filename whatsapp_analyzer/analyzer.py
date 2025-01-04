@@ -1,43 +1,15 @@
-# whatsapp_analyzer/analyzer.py
 import re
-import regex
 import emoji
 from datetime import datetime
 import pandas as pd
 from nltk.corpus import stopwords
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
-from calendar import day_name
-import numpy as np
-import plotly.express as px
-from dateutil import parser  # For more robust date parsing
-import nltk
 from collections import Counter
+import seaborn as sns
 
 # Assuming you have utility functions in a separate module
 from whatsapp_analyzer import utils
-from whatsapp_analyzer import exceptions
-
-import re
-import regex
-import emoji
-from datetime import datetime
-import pandas as pd
-from nltk.corpus import stopwords
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-from calendar import day_name
-import numpy as np
-import plotly.express as px
-from dateutil import parser
-import nltk
-from collections import Counter
-import sys
-import traceback
-
-# Assuming you have utility functions in a separate module
-from whatsapp_analyzer import utils
-from whatsapp_analyzer import exceptions
 
 class Analyzer:
     def __init__(self, chat_data):
@@ -91,11 +63,6 @@ class Analyzer:
     def analyze_message_length(self, column_name="mlen"):
         """Analyzes the distribution of message lengths."""
         print("\nMessage Length Distribution:")
-        print(self.chat_data[column_name].describe())
-
-    def analyze_message_length(self, column_name="mlen"):
-        """Analyzes the distribution of message lengths."""
-        print("\nMessage Length Distribution:")
         series = self.chat_data[column_name].describe()
         print(series)
         return series  # Now it returns the pandas Series
@@ -114,34 +81,58 @@ class Analyzer:
         emoji_counts = pd.Series(all_emojis).value_counts()
         return emoji_counts
 
-    # analyzer.py
-    def create_plotly_fig(self, x, y, sortby, asc=False, count=True):
+    def create_seaborn_fig(self, x, y, sortby=None, asc=False, count=True):
+        """
+        Creates a Seaborn line chart for visualization.
+        
+        Args:
+            x (str): Column name for the x-axis (e.g., 'dow' for days of the week).
+            y (str): Column name for the y-axis (e.g., 'message' or 'message count').
+            sortby (str): Column to sort the data by.
+            asc (bool): Whether to sort in ascending order.
+            count (bool): If True, count occurrences; if False, sum the values.
+
+        Returns:
+            dict: Path to the saved plot image.
+        """
         print(self.chat_data.columns)
         print(self.chat_data['dow'].unique())
         print(x, y)
-        """
-        Creates a Plotly line chart for visualization.
-        """
+
         try:
+            # Grouping the data
             if count:
                 grouped_data = self.chat_data.groupby(x, as_index=False, observed=True)[y].count()
             else:
                 grouped_data = self.chat_data.groupby(x, as_index=False, observed=True)[y].sum()
-            if sortby != 0:
-                grouped_data = grouped_data.sort_values(sortby, ascending=asc)
-        except Exception as e:
-            print("An error occurred during grouping:")
-            print(f"  Error message: {e}")
-            print(f"  Error type: {type(e).__name__}")
-            print("  Traceback:")
-            traceback.print_exc()  # Print the full traceback
-            return None  # Or raise the exception again if you want it to propagate
 
-        fig = px.line(
-            data_frame=grouped_data,
-            x=x,
-            y=y,
-            title=f"Number of {y} by {x}",
-            labels={x: x, y: f"Number of {y}"},
-        )
-        return fig
+            # Sorting if necessary
+            if sortby:
+                grouped_data = grouped_data.sort_values(by=sortby, ascending=asc)
+
+        except Exception as e:
+            print(f"An error occurred during grouping or plotting: {e}")
+            traceback.print_exc()  # Print the full traceback for debugging
+            return None
+
+        # Create Seaborn line plot
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=grouped_data, x=x, y=y, marker='o')
+        plt.title(f"Number of {y} by {x}")
+        plt.xlabel(x)
+        plt.ylabel(f"Number of {y}")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        # Save the plot as an image
+        chart_path = f'./data/{x}_vs_{y}_line_plot.png'
+        plt.savefig(chart_path, bbox_inches="tight")
+        plt.close()
+
+        # Return the image path for further use in reports or as a response
+        return [{
+            "type": "image",
+            "data": chart_path,
+            "width": 800,
+            "height": 400,
+        }]
