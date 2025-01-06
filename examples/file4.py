@@ -65,6 +65,23 @@ def create_seaborn_chart_section(analyzer):
         print(f"Error: {e}")
         return [{"type": "html", "data": "<p>Error: Data not found. Unable to generate chart.</p>"}]
 
+def create_chat_summary_section(analyzer):
+    """
+    Generates a section with basic chat summary, including number of users,
+    chat period, and top users based on message count.
+    """
+    num_users = analyzer.calculate_num_users()
+    chat_period = analyzer.calculate_chat_period()
+    top_users = analyzer.calculate_top_users(5)
+    top_users_df = pd.DataFrame(top_users, columns=["User", "Message Count"])
+
+    return [
+        {"type": "html", "data": "<h3>Chat Summary</h3>"},
+        {"type": "html", "data": f"<p><strong>Number of Users:</strong> {num_users}</p>"},
+        {"type": "html", "data": f"<p><strong>Chat Period:</strong> {chat_period}</p>"},
+        {"type": "html", "data": "<h4>Top 5 Users by Message Count</h4>"},
+        {"type": "table", "data": top_users_df},
+    ]
 
 def main():
     chat_file = "./data/whatsapp_chat2.txt"
@@ -83,6 +100,7 @@ def main():
 
         content = [
             {"type": "html", "data": "<h2>WhatsApp Chat Analysis</h2>"},
+            *create_chat_summary_section(analyzer),
             *create_word_cloud_section(analyzer),
             *create_top_10_words_section(analyzer),
             *create_message_length_section(analyzer),

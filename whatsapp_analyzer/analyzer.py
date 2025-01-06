@@ -21,6 +21,48 @@ class Analyzer:
         """
         self.chat_data = chat_data
 
+    def calculate_num_users(self):
+        # Get unique users from the 'name' column in the DataFrame
+        if "name" not in self.chat_data.columns:
+            raise ValueError("Column 'name' not found in chat_data.")
+        return self.chat_data["name"].nunique()
+
+
+    def calculate_chat_period(self):
+        """
+        Calculates the start and end dates of the chat data.
+
+        Returns:
+            tuple: Start date and end date as strings.
+        """
+        if "date_time" not in self.chat_data.columns:
+            raise ValueError("Column 'date_time' not found in chat_data.")
+        
+        start_date = self.chat_data["date_time"].min()
+        end_date = self.chat_data["date_time"].max()
+        return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+
+
+    def calculate_top_users(self, top_n=5):
+        """
+        Calculates the top N users by message count.
+
+        Args:
+            top_n (int): Number of top users to return.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the top N users and their message counts.
+        """
+        if "name" not in self.chat_data.columns:
+            raise ValueError("Column 'name' not found in chat_data.")
+        
+        if "name" in self.chat_data.columns:
+            self.chat_data = self.chat_data[self.chat_data["name"].notnull()]
+
+        user_message_counts = self.chat_data["name"].value_counts().head(top_n)
+        return user_message_counts.reset_index().rename(columns={"index": "name", "name": "message_count"})
+
+    
     def generate_wordcloud(self, column_name="message", stop_words=None):
         """Generates and displays a word cloud from the specified column."""
         text = self.chat_data[column_name].str.cat(sep=" ")
@@ -29,7 +71,8 @@ class Analyzer:
 
         if stop_words is None:
             stop_words = set(stopwords.words("english"))
-            stop_words.update(["omitted", "media"])
+            stop_words.update(["omitted", "media", "https"])
+
 
         try:
             wordcloud = WordCloud(
@@ -69,6 +112,10 @@ class Analyzer:
         """Counts the total number of media messages."""
         total_media = self.chat_data[column_name].sum()
 
+    def analyze_media_count(self, column_name="mediacount"):
+        return self.chat_data[column_name].sum() if column_name in self.chat_data else 0
+
+
     def analyze_emoji_usage(self, column_name="emojicount"):
         """Analyzes emoji usage (total count, most frequent)."""
         total_emojis = self.chat_data[column_name].sum()
@@ -76,6 +123,14 @@ class Analyzer:
         all_emojis = [e for sublist in self.chat_data["emoji"] for e in sublist]
         emoji_counts = pd.Series(all_emojis).value_counts()
         return emoji_counts
+    
+    def analyze_emoji_usage(self, column_name="emoji"):
+        if column_name in self.chat_data:
+            all_emojis = [e for sublist in self.chat_data[column_name].dropna() for e in sublist]
+            emoji_counts = pd.Series(all_emojis).value_counts()
+            return emoji_counts
+        return pd.Series(dtype="int64")
+
 
     def create_seaborn_fig(self, x, y, sortby=None, asc=False, count=True):
         """
