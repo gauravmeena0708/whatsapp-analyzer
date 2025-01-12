@@ -3,10 +3,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="whatsapp-analyzer",
+    name="whatsapp-groupchat-analyzer",
     version="0.1.0",  # Start with an initial version
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Gaurav Meena",
+    author_email="gauravmeena0708@gmail.com",
     description="A Python package for analyzing WhatsApp group chats.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
