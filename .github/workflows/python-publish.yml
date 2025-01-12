@@ -39,7 +39,7 @@ jobs:
       id-token: write
 
     environment:
-      name: pproject
+      name: release
       url: https://pypi.org/project/whatsapp-groupchat-analyzer/
 
     steps:
@@ -53,4 +53,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_API_TOKEN2 }}
