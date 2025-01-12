@@ -38,10 +38,6 @@ jobs:
     permissions:
       id-token: write
 
-    environment:
-      name: release
-      url: https://pypi.org/project/whatsapp-groupchat-analyzer/
-
     steps:
       - name: Download release distributions
         uses: actions/download-artifact@v4
