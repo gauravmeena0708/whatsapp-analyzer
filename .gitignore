@@ -1,2 +1,6 @@
 data/
 __pycache__/
+*.ipynb
+*.db
+*.key
+examples/usage1.py
