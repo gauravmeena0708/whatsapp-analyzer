@@ -20,8 +20,8 @@ import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 
 # Paths to font files
-roboto_font_path = './reports/roboto.ttf'  # Path to Roboto
-noto_emoji_font_path = './reports/noto.ttf'  # Path to Noto Color Emoji
+roboto_font_path = '../templates/roboto.ttf'  # Path to Roboto
+noto_emoji_font_path = '../templates/noto.ttf'  # Path to Noto Color Emoji
 
 # Add fonts explicitly
 fm.fontManager.addfont(roboto_font_path)
@@ -44,7 +44,7 @@ nltk.download('wordnet')
 nltk.download('stopwords')
 
 # Load and clean data
-chat_file = "../data/whatsapp_chat2.txt"  # Replace with your chat file
+chat_file = "../data/whatsapp_chat.txt"  # Replace with your chat file
 parser = Parser(chat_file)
 df = utils.df_basic_cleanup(parser.parse_chat_data())
 
@@ -274,7 +274,7 @@ def analyze_sentiment_over_time(df, username=None):
     df_filtered.set_index('date', inplace=True)
 
     # Resample to daily frequency and calculate the mean sentiment
-    daily_sentiment = df_filtered['sentiment'].resample('D').mean()
+    daily_sentiment = df_filtered['sentiment'].resample('W').mean()
 
     plt.figure(figsize=(12, 6))
     plt.plot(daily_sentiment.index, daily_sentiment.values, color='purple')
@@ -679,7 +679,7 @@ def analyze_hindi_abuse(df, username=None):
         df_filtered = df.copy()
 
     # List of Hindi abusive words 
-    hindi_abusive_words = ["<fill words>"]
+    hindi_abusive_words = []
 
 
     # Count occurrences of each abusive word
@@ -848,7 +848,7 @@ html_template = """
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../templates/style.css">
 </head>
 <body>
     <div class="container">
@@ -1041,7 +1041,7 @@ for name in df['name'].unique():
         most_active_hours=user_stats['Most Active Hours'],
     )
 
-    output_path = os.path.join('reports', f"{name}_report.html")
+    output_path = os.path.join('..','data', f"{name}_report.html")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     with open(output_path, 'w', encoding='utf-8') as output_file:
