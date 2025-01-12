@@ -10,4 +10,4 @@ dependencies:
   - scikit-learn                   # Example dependency
   - pip:
       - whatsapp-groupchat-analyzer  # Install your package via pip (if it's published)
-      - some-other-package           # Additional pip dependencies
+      #- some-other-package           # Additional pip dependencies
