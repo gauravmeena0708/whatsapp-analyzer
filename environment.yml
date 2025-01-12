@@ -1,0 +1,13 @@
+name: whatsapp-groupchat-analyzer  # Name of the environment
+channels:
+  - defaults                       # Use default Conda channels
+dependencies:
+  - python=3.9                     # Specify Python version
+  - pip                            # Include pip to install pip-based dependencies
+  - numpy                          # Example dependency
+  - pandas                         # Example dependency
+  - matplotlib                     # Example dependency
+  - scikit-learn                   # Example dependency
+  - pip:
+      - whatsapp-groupchat-analyzer  # Install your package via pip (if it's published)
+      - some-other-package           # Additional pip dependencies
