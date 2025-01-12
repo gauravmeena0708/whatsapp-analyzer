@@ -985,7 +985,7 @@ html_template = """
         </div>
         <footer class="footer">
             <p>Generated with <i class="fas fa-heart"></i> by WhatsApp Analyzer</p>
-            <p><a href="https://github.com/your-repo-link" target="_blank"><i class="fab fa-github"></i> Visit the Project</a></p>
+            <p><a href="https://github.com/gauravmeena0708/k" target="_blank"><i class="fab fa-github"></i> Visit the Project</a></p>
         </footer>
     </div>
 </body>
