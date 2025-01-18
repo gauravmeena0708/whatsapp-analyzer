@@ -1,5 +1,26 @@
 # whatsapp_analyzer/__init__.py
 import nltk
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+# import matplotlib.pyplot as plt # Already imported
+import warnings
+
+available_fonts = {fm.FontProperties(fname=fp).get_name() for fp in fm.findSystemFonts()}
+emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji"]
+selected_font = None
+
+for font in emoji_fonts:
+    if font in available_fonts:
+        selected_font = font
+        break
+
+if selected_font:
+    plt.rcParams["font.family"] = [selected_font, "Roboto", "DejaVu Sans", "sans-serif"]
+else:
+    warnings.warn(
+        "No emoji-compatible font found. Install 'Segoe UI Emoji', or 'Apple Color Emoji' for full emoji support."
+    )
+    plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans", "sans-serif"]
 
 def ensure_nltk_resources(resources):
     """

@@ -4,6 +4,6 @@ This is second repo for whatsapp group analyzer. The complete usage example is g
 
 ## How to run
 
-    pip install -r requirements.txt
-    cd examples
-    python usage1.py
+    from whatsapp_analyzer.analyzer import WhatsAppAnalyzer
+    analyzer = WhatsAppAnalyzer(chat_file="../data/whatsapp_chat.txt", out_dir="../data")
+    analyzer.generate_report()
