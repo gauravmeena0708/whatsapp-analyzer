@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='whatsapp-groupchat-analyzer',
-    version='0.1.1',  # Increment the version number
+    version='0.1.5',  # Increment the version number
     author="Gaurav Meena",
     author_email="gauravmeena0708@gmail.com",
     description="A Python package for analyzing WhatsApp group chats.",
@@ -13,9 +13,14 @@ setup(
     url="https://github.com/gauravmeena0708/whatsapp-analyzer",  # Your project URL
     packages=find_packages(),
     install_requires=[
-        # List your dependencies here, e.g.,
-        # "matplotlib>=3.0",
-        # "seaborn>=0.9",
+        "seaborn>=0.9",
+        "textblob",
+        "emoji",
+        "networkx",
+        "matplotlib",
+        "wordcloud",
+        "nltk",
+        "scikit-learn"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

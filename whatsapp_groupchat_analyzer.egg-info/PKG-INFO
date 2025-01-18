@@ -1,0 +1,40 @@
+Metadata-Version: 2.2
+Name: whatsapp-groupchat-analyzer
+Version: 0.1.5
+Summary: A Python package for analyzing WhatsApp group chats.
+Home-page: https://github.com/gauravmeena0708/whatsapp-analyzer
+Author: Gaurav Meena
+Author-email: gauravmeena0708@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: seaborn>=0.9
+Requires-Dist: textblob
+Requires-Dist: emoji
+Requires-Dist: networkx
+Requires-Dist: matplotlib
+Requires-Dist: wordcloud
+Requires-Dist: nltk
+Requires-Dist: scikit-learn
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Introduction
+
+This is second repo for whatsapp group analyzer. The complete usage example is given in examples/usage1.py
+
+## How to run
+
+    pip install -r requirements.txt
+    cd examples
+    python usage1.py

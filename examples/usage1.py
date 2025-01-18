@@ -19,29 +19,32 @@ import networkx as nx
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 
-# Paths to font files
-roboto_font_path = '../templates/roboto.ttf'  # Path to Roboto
-noto_emoji_font_path = '../templates/noto.ttf'  # Path to Noto Color Emoji
 
-# Add fonts explicitly
-fm.fontManager.addfont(roboto_font_path)
-fm.fontManager.addfont(noto_emoji_font_path)
-
-# Load the fonts
-font_prop_roboto = fm.FontProperties(fname=roboto_font_path)
-#font_prop_emoji = fm.FontProperties(fname=noto_emoji_font_path)
-
-# Set font families with fallback
-plt.rcParams['font.family'] = [font_prop_roboto.get_name(), 'Noto Emoji', 'sans-serif' ]
+plt.rcParams['font.family'] = ['Roboto', 'Noto Emoji', 'sans-serif' ]
 
 
 
-# Download necessary NLTK data (only needed once)
-nltk.download('vader_lexicon')
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('wordnet')
-nltk.download('stopwords')
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
+try:
+    nltk.data.find('sentiment/vader_lexicon')
+except LookupError:
+    nltk.download('vader_lexicon')
+try:
+    nltk.data.find('taggers/averaged_perceptron_tagger')
+except LookupError:
+    nltk.download('averaged_perceptron_tagger')
+try:
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    nltk.download('wordnet')
+
 
 # Load and clean data
 chat_file = "../data/whatsapp_chat.txt"  # Replace with your chat file
@@ -679,7 +682,17 @@ def analyze_hindi_abuse(df, username=None):
         df_filtered = df.copy()
 
     # List of Hindi abusive words 
-    hindi_abusive_words = []
+    hindi_abusive_words = [
+        'chutiya', 'gandu', 'bhosdike', 'bhadwe', 'madarchod', 'behenchod', 'randi',
+        'laude', 'chut', 'harami', 'kutta', 'kutiya', 'suar', 'hijra', 'gaand', 'tatte',
+        'jhat', 'bhosdi', 'bhadwa', 'chinal', 'chakka', 'behen ke laude', 'maa ke laude',
+        'baap ke laude', 'bhosdiwala', 'bhosdiwali', 'gandu ke aulad', 'gandi aulad',
+        'harami aulad', 'gandu sala', 'chutiya sala', 'bhosdike sala', 'madarchod sala',
+        'gandi maa ka', 'gandi maa ki', 'gandu maa ka', 'gandu maa ki', 'chutiya maa ka',
+        'chutiya maa ki', 'madarchod maa ka', 'madarchod maa ki', 'madarchod bhai',
+        'madarchod bahen', 'bhosdike bhai', 'bhosdike bahen', 'chutiya bhai', 'chutiya bahen',
+        'gandu bhai', 'gandu bahen', 'harami bhai', 'harami bahen', 'bhadwe bhai', 'bhadwe bahen',
+        'bsdiwala', 'iski maka', 'betichod']
 
 
     # Count occurrences of each abusive word
