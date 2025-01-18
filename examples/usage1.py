@@ -18,9 +18,28 @@ from functools import lru_cache
 import networkx as nx
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
+import warnings
 
+# Get all installed font names
+available_fonts = {fm.FontProperties(fname=fp).get_name() for fp in fm.findSystemFonts()}
 
-plt.rcParams['font.family'] = ['Roboto', 'Noto Emoji', 'sans-serif' ]
+# Add an emoji-compatible font if available
+emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji"]
+selected_font = None
+
+for font in emoji_fonts:
+    if font in available_fonts:
+        selected_font = font
+        break
+
+if selected_font:
+    plt.rcParams["font.family"] = [selected_font, "Roboto", "DejaVu Sans", "sans-serif"]
+else:
+    warnings.warn(
+        "No emoji-compatible font found. Install 'Segoe UI Emoji', or 'Apple Color Emoji' for full emoji support."
+    )
+    plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans", "sans-serif"]
+
 
 
 

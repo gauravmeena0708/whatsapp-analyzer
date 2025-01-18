@@ -86,7 +86,6 @@ class Analyzer:
             plt.figure(figsize=(32, 18))
             plt.imshow(wordcloud, interpolation="bilinear")
             plt.axis("off")
-            #plt.show()
         except ValueError as e:
             print(f"Error generating word cloud: {e}")
 
@@ -109,20 +108,10 @@ class Analyzer:
         return series  # Now it returns the pandas Series
 
     def analyze_media_count(self, column_name="mediacount"):
-        """Counts the total number of media messages."""
-        total_media = self.chat_data[column_name].sum()
-
-    def analyze_media_count(self, column_name="mediacount"):
         return self.chat_data[column_name].sum() if column_name in self.chat_data else 0
 
 
-    def analyze_emoji_usage(self, column_name="emojicount"):
-        """Analyzes emoji usage (total count, most frequent)."""
-        total_emojis = self.chat_data[column_name].sum()
 
-        all_emojis = [e for sublist in self.chat_data["emoji"] for e in sublist]
-        emoji_counts = pd.Series(all_emojis).value_counts()
-        return emoji_counts
     
     def analyze_emoji_usage(self, column_name="emoji"):
         if column_name in self.chat_data:
