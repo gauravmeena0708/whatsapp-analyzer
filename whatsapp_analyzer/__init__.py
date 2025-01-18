@@ -1,26 +1,43 @@
-# whatsapp_analyzer/__init__.py
 import nltk
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-# import matplotlib.pyplot as plt # Already imported
 import warnings
 
-available_fonts = {fm.FontProperties(fname=fp).get_name() for fp in fm.findSystemFonts()}
-emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji"]
-selected_font = None
+# Font Initialization with System-Wide Check
+def initialize_fonts():
+    """
+    Initializes and sets the fonts for matplotlib, checking for system-installed fonts.
+    """
+    font_issue = False  # Flag to track if there are any issues with fonts
 
-for font in emoji_fonts:
-    if font in available_fonts:
-        selected_font = font
-        break
+    # Emoji-compatible fonts to check
+    emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji", "Noto Emoji"]
 
-if selected_font:
-    plt.rcParams["font.family"] = [selected_font, "Roboto", "DejaVu Sans", "sans-serif"]
-else:
-    warnings.warn(
-        "No emoji-compatible font found. Install 'Segoe UI Emoji', or 'Apple Color Emoji' for full emoji support."
-    )
-    plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans", "sans-serif"]
+    # System-wide font list
+    available_fonts = {f.name for f in fm.fontManager.ttflist}
+
+    # Find available emoji-compatible font
+    selected_emoji_font = None
+    for font in emoji_fonts:
+        if font in available_fonts:
+            selected_emoji_font = font
+            break
+
+    # Set font families
+    if selected_emoji_font:
+        plt.rcParams["font.family"] = [selected_emoji_font, "sans-serif"]
+    else:
+        warnings.warn(
+            "No emoji-compatible font found. Using default 'sans-serif'. "
+            "Install 'Segoe UI Emoji', 'Apple Color Emoji', or 'Noto Emoji' for better emoji support."
+        )
+        plt.rcParams["font.family"] = ["sans-serif"]
+
+    # Check for system-wide Roboto font
+    if "Roboto" in available_fonts:
+        plt.rcParams["font.family"].insert(0, "Roboto")
+
+initialize_fonts()
 
 def ensure_nltk_resources(resources):
     """

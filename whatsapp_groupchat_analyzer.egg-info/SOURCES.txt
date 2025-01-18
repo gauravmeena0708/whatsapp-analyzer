@@ -4,13 +4,12 @@ setup.py
 tests/test_parser.py
 whatsapp_analyzer/__init__.py
 whatsapp_analyzer/analyzer.py
+whatsapp_analyzer/constants.py
 whatsapp_analyzer/exceptions.py
 whatsapp_analyzer/parser.py
 whatsapp_analyzer/pdf_generator.py
-whatsapp_analyzer/report_sections.py
-whatsapp_analyzer/stats.py
+whatsapp_analyzer/run.py
 whatsapp_analyzer/utils.py
-whatsapp_analyzer/visualizer.py
 whatsapp_groupchat_analyzer.egg-info/PKG-INFO
 whatsapp_groupchat_analyzer.egg-info/SOURCES.txt
 whatsapp_groupchat_analyzer.egg-info/dependency_links.txt

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: whatsapp-groupchat-analyzer
-Version: 0.1.5
+Version: 0.2.2
 Summary: A Python package for analyzing WhatsApp group chats.
 Home-page: https://github.com/gauravmeena0708/whatsapp-analyzer
 Author: Gaurav Meena
@@ -35,6 +35,6 @@ This is second repo for whatsapp group analyzer. The complete usage example is g
 
 ## How to run
 
-    pip install -r requirements.txt
-    cd examples
-    python usage1.py
+    from whatsapp_analyzer.analyzer import WhatsAppAnalyzer
+    analyzer = WhatsAppAnalyzer(chat_file="../data/whatsapp_chat.txt", out_dir="../data")
+    analyzer.generate_report()

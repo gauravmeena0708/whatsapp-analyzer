@@ -8,3 +8,5 @@ __pycache__/
 *.key
 examples/usage1.py
 *.pyc
+dist/
+*.egg-info/
