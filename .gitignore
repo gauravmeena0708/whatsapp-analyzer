@@ -1,6 +1,10 @@
 data/
+*__pycache__/*
+*__pycache__/
+__pycache__/*
 __pycache__/
 *.ipynb
 *.db
 *.key
 examples/usage1.py
+*.pyc
