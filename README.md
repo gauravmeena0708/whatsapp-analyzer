@@ -1,6 +1,12 @@
 # Introduction
 
-This is second repo for whatsapp group analyzer. The complete usage example is given in examples/usage1.py
+This is second repo for whatsapp group analyzer. The exaple usage is as following
+
+## Installation
+
+    pip install whatsapp-groupchat-analyzer
+
+it is recommended to have emoji fonts installed in system
 
 ## How to run
 
