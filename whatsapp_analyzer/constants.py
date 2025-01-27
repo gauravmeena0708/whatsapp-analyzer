@@ -43,14 +43,16 @@ skill_keywords = {
         'hardware ki setting', 'takniki', 'praudyogiki', 'yantrik', 'abhikalpan',
         'karya', 'karya pranali', 'vidhi', 'tantra','upkaran', 'samagri', 'sangathan', 
         'sanchar', 'aankda', 'soochi', 'doshal', 'tantrik', 'vigyan', 'software vikas',
-        'hardware vikas', 'network sthapana', 'database prabandhan', 'debug karna'
+        'hardware vikas', 'network sthapana', 'database prabandhan', 'debug karna',
+        "lower bound", "upper bound", "time complexity", "space complexity", "algorithm design",
+        "estimation", "nvidia", "detection", "classification", "regression", "prediction",
     ],
     'teamwork': [
         'collaborate', 'cooperate', 'coordinate', 'assist', 'support', 'together',
         'contribute', 'participate', 'teamwork', 'saath kaam karna', 'mil jul kar kaam',
         'sath dena', 'madad karna', 'sahyog karna', 'support karna', 'cooperate karna',
         'milkar', 'sath', 'sahkarya', 'sajha', 'sahkari', 'sahbhaagi', 'samudaayik', 'ekjut',
-        'sammilit', 'gatbandhan','sahyog dena'
+        'sammilit', 'gatbandhan','sahyog dena', "bhardo", "kardo", "bhejdo"
     ]
 }
 
@@ -64,7 +66,7 @@ hindi_abusive_words = [
         'chutiya maa ki', 'madarchod maa ka', 'madarchod maa ki', 'madarchod bhai',
         'madarchod bahen', 'bhosdike bhai', 'bhosdike bahen', 'chutiya bhai', 'chutiya bahen',
         'gandu bhai', 'gandu bahen', 'harami bhai', 'harami bahen', 'bhadwe bhai', 'bhadwe bahen',
-        'bsdiwala', 'iski maka', 'betichod']
+        'bsdiwala', 'iski maka', 'betichod', "gand", "bc", "mc", "madar", "bkl", "bkl", "bkl", "bkl",]
 
 html_template = """
 <!DOCTYPE html>

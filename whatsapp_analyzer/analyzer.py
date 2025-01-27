@@ -65,79 +65,80 @@ class WhatsAppAnalyzer:
             users = self.df["name"].unique()
 
         for name in users:
-            user_stats = self.basic_stats(self.df, name)
-            top_5_emojis_html = " ".join(
-                [f"{emoji} ({count})" for emoji, count in user_stats["Top 5 Emojis"]]
-            )
+            if name != "System":
+                user_stats = self.basic_stats(self.df, name)
+                top_5_emojis_html = " ".join(
+                    [f"{emoji} ({count})" for emoji, count in user_stats["Top 5 Emojis"]]
+                )
 
-            final_html = html_template.format(
-                name=name,
-                total_messages=user_stats["Total Messages"],
-                total_words=user_stats["Total Words"],
-                unique_users=user_stats["Unique Users"],
-                total_emojis=user_stats["Total Emojis"],
-                top_5_emojis=top_5_emojis_html,
-                total_urls=user_stats["Total URLs"],
-                total_youtube_urls=user_stats["Total YouTube URLs"],
-                total_media=user_stats["Total Media"],
-                total_edits=user_stats["Total Edits"],
-                total_deletes=user_stats["Total Deletes"],
-                average_message_length=user_stats["Average Message Length"],
-                average_sentence_length=user_stats["Average Sentence Length"],
-                positive_messages=user_stats["Positive Messages"],
-                negative_messages=user_stats["Negative Messages"],
-                morning_messages=user_stats["Morning Messages"],
-                midday_messages=user_stats["Mid-day Messages"],
-                evening_messages=user_stats["Evening Messages"],
-                night_messages=user_stats["Night Messages"],
-                most_active_period=user_stats["Most Active Period"],
-                unique_words_count=user_stats["Unique Words Count"],
-                common_unigrams="".join(
-                    [
-                        f"<li>{word[0]}: {word[1]}</li>"
-                        for word in user_stats["Common Unigrams"]
-                    ]
-                ),
-                common_bigrams="".join(
-                    [
-                        f"<li>{word[0]}: {word[1]}</li>"
-                        for word in user_stats["Common Bigrams"]
-                    ]
-                ),
-                common_trigrams="".join(
-                    [
-                        f"<li>{word[0]}: {word[1]}</li>"
-                        for word in user_stats["Common Trigrams"]
-                    ]
-                ),
-                average_response_time=user_stats["Average Response Time"],
-                activity_heatmap=user_stats["Activity Heatmap"],
-                sentiment_distribution=user_stats["Sentiment Distribution"],
-                word_cloud=user_stats["Word Cloud"],
-                language_complexity=user_stats["Language Complexity"],
-                response_time_distribution=user_stats["Response Time Distribution"],
-                sentiment_over_time=user_stats["Sentiment Over Time"],
-                emoji_usage=user_stats["Emoji Usage"],
-                sentiment_bubble=user_stats["Sentiment Bubble"],
-                vocabulary_diversity=user_stats["Vocabulary Diversity"],
-                language_complexity_pos=user_stats["Language Complexity POS"],
-                user_relationship_graph=user_stats["User Relationship Graph"],
-                skills_radar_chart=user_stats["Skills Radar Chart"],
-                behavioral_insights_text=user_stats["Behavioral Insights Text"],
-                emotion_over_time=user_stats["Emotion Over Time"],
-                hindi_abuse_count=user_stats["Hindi Abuse Counts"],
-                most_active_hours=user_stats["Most Active Hours"],
-            )
+                final_html = html_template.format(
+                    name=name,
+                    total_messages=user_stats["Total Messages"],
+                    total_words=user_stats["Total Words"],
+                    unique_users=user_stats["Unique Users"],
+                    total_emojis=user_stats["Total Emojis"],
+                    top_5_emojis=top_5_emojis_html,
+                    total_urls=user_stats["Total URLs"],
+                    total_youtube_urls=user_stats["Total YouTube URLs"],
+                    total_media=user_stats["Total Media"],
+                    total_edits=user_stats["Total Edits"],
+                    total_deletes=user_stats["Total Deletes"],
+                    average_message_length=user_stats["Average Message Length"],
+                    average_sentence_length=user_stats["Average Sentence Length"],
+                    positive_messages=user_stats["Positive Messages"],
+                    negative_messages=user_stats["Negative Messages"],
+                    morning_messages=user_stats["Morning Messages"],
+                    midday_messages=user_stats["Mid-day Messages"],
+                    evening_messages=user_stats["Evening Messages"],
+                    night_messages=user_stats["Night Messages"],
+                    most_active_period=user_stats["Most Active Period"],
+                    unique_words_count=user_stats["Unique Words Count"],
+                    common_unigrams="".join(
+                        [
+                            f"<li>{word[0]}: {word[1]}</li>"
+                            for word in user_stats["Common Unigrams"]
+                        ]
+                    ),
+                    common_bigrams="".join(
+                        [
+                            f"<li>{word[0]}: {word[1]}</li>"
+                            for word in user_stats["Common Bigrams"]
+                        ]
+                    ),
+                    common_trigrams="".join(
+                        [
+                            f"<li>{word[0]}: {word[1]}</li>"
+                            for word in user_stats["Common Trigrams"]
+                        ]
+                    ),
+                    average_response_time=user_stats["Average Response Time"],
+                    activity_heatmap=user_stats["Activity Heatmap"],
+                    sentiment_distribution=user_stats["Sentiment Distribution"],
+                    word_cloud=user_stats["Word Cloud"],
+                    language_complexity=user_stats["Language Complexity"],
+                    response_time_distribution=user_stats["Response Time Distribution"],
+                    sentiment_over_time=user_stats["Sentiment Over Time"],
+                    emoji_usage=user_stats["Emoji Usage"],
+                    sentiment_bubble=user_stats["Sentiment Bubble"],
+                    vocabulary_diversity=user_stats["Vocabulary Diversity"],
+                    language_complexity_pos=user_stats["Language Complexity POS"],
+                    user_relationship_graph=user_stats["User Relationship Graph"],
+                    skills_radar_chart=user_stats["Skills Radar Chart"],
+                    behavioral_insights_text=user_stats["Behavioral Insights Text"],
+                    emotion_over_time=user_stats["Emotion Over Time"],
+                    hindi_abuse_count=user_stats["Hindi Abuse Counts"],
+                    most_active_hours=user_stats["Most Active Hours"],
+                )
 
-            output_path = os.path.join(
-                self.out_dir, f"{name}_report.html"
-            )
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                output_path = os.path.join(
+                    self.out_dir, f"{name}_report.html"
+                )
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-            with open(output_path, "w", encoding="utf-8") as output_file:
-                output_file.write(final_html)
+                with open(output_path, "w", encoding="utf-8") as output_file:
+                    output_file.write(final_html)
 
-            print(f"Report for {name} has been generated and saved at {output_path}")
+                print(f"Report for {name} has been generated and saved at {output_path}")
     
     def analyze_behavioral_traits(self, df, username=None):
         """

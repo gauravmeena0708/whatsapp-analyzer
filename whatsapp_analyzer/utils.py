@@ -463,6 +463,8 @@ def plot_user_relationship_graph(df):
     Plot a graph representing the relationships between users based on message interactions.
     Nodes represent users, and edges represent interactions between them.
     """
+    df = df[df['name'] != "System"].reset_index(drop=True)
+    
     # Create a graph
     G = nx.Graph()
 
@@ -513,7 +515,7 @@ def plot_skills_radar_chart(df, username=None):
     
     # Normalize counts for radar chart
     max_count = max(counts)
-    normalized_counts = [(count / max_count) for count in counts]
+    normalized_counts = [(count / (max_count+1)) for count in counts]
 
     # Number of variables (skills)
     num_vars = len(skills)
