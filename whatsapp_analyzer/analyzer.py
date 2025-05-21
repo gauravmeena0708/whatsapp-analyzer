@@ -50,7 +50,15 @@ class WhatsAppAnalyzer:
     def __init__(self, chat_file, out_dir="."):
         self.chat_file = chat_file
         self.out_dir = out_dir
-        self.parser = Parser(self.chat_file)
+        try:
+            self.parser = Parser(self.chat_file)
+        except FileNotFoundError:
+            # Print a user-friendly message
+            error_message = f"Error: The chat file was not found at the specified path: {self.chat_file}"
+            print(error_message)
+            # Optionally, re-raise the exception or exit
+            # For this task, let's make it exit so the user sees the message clearly.
+            raise SystemExit(error_message)
         self.df = df_basic_cleanup(self.parser.parse_chat_data())
 
     def generate_report(self, users=None):
