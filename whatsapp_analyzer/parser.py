@@ -26,7 +26,8 @@ class Parser:
         processed_lines = []
         buffer = ""
 
-        date_pattern = re.compile(r"^\d{2}/\d{2}/\d{2}, \d{1,2}:\d{2}\s[apm]{2}")
+        # Updated date_pattern
+        date_pattern = re.compile(r"^\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)")
 
         for line in lines:
             if date_pattern.match(line):
@@ -52,16 +53,18 @@ class Parser:
         chat_data = []
         for line in chat_lines:
             try:
+                # Updated user message regex
                 match = re.match(
-                    r"(\d{2}/\d{2}/\d{2}, \d{1,2}:\d{2}\s[apm]{2}) - (.*?): (.*)", line
+                    r"(\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)) - (.*?): (.*)", line
                 )
                 if match:
                     timestamp, sender, message = match.groups()
                     date_obj = parser.parse(timestamp)
                     chat_data.append({"t": date_obj, "name": sender, "message": message})
                 else:
+                    # Updated system message regex
                     match2 = re.match(
-                        r"(\d{2}/\d{2}/\d{2}, \d{1,2}:\d{2}\s[apm]{2}) - (.*)", line
+                        r"(\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)) - (.*)", line
                     )
                     if match2:
                         timestamp, event = match2.groups()
