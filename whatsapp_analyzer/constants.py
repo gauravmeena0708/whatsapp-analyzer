@@ -81,7 +81,7 @@ html_template = """
     <style>
     
 body {{
-            font-family: "Segoe UI Emoji", "Apple Color Emoji", 'Roboto', Arial, sans-serif; 
+            font-family: 'Roboto', Arial, sans-serif;
             background-color: #f4f4f4;
             color: #333;
             line-height: 1.6;
@@ -179,6 +179,7 @@ body {{
         }}
         .emoji {{
             font-size: 1.2rem;
+            font-family: "Segoe UI Emoji", "Apple Color Emoji", 'Roboto', Arial, sans-serif;
         }}
         .visualization {{
             margin-top: 20px;
@@ -203,9 +204,6 @@ body {{
         .insights p {{
             font-size: 0.9rem;
             line-height: 1.5;
-        }}
-		.emoji {{
-            font-family: 'Roboto', Arial, sans-serif; 
         }}
     </style>
 </head>
