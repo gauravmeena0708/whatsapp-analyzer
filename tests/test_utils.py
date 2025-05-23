@@ -7,7 +7,7 @@ from datetime import datetime, date, time
 import os
 import tempfile
 
-from whatsapp_analyzer.utils import df_basic_cleanup
+from whatsapp_analyzer.utils import df_basic_cleanup, anonymize, ANIMAL_NAMES
 from whatsapp_analyzer.parser import Parser
 
 class TestUtils(unittest.TestCase):
@@ -140,6 +140,155 @@ class TestUtils(unittest.TestCase):
         # Test sixth message (User1) - "You deleted this message"
         msg6 = clean_df.iloc[5]
         self.assertEqual(msg6['deletecount'], 1)
+
+# --- TestAnonymize class starts here ---
+class TestAnonymize(unittest.TestCase):
+
+    def setUp(self):
+        # Create temporary files for input and output
+        self.temp_input_file = tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8")
+        self.temp_output_file = tempfile.NamedTemporaryFile(mode="r", delete=False, encoding="utf-8")
+        
+        # Store their paths
+        self.input_path = self.temp_input_file.name
+        self.output_path = self.temp_output_file.name
+        
+        # Close them immediately, anonymize function will open/close them
+        self.temp_input_file.close()
+        self.temp_output_file.close()
+
+    def tearDown(self):
+        # Clean up the temporary files
+        os.remove(self.input_path)
+        os.remove(self.output_path)
+
+    def _write_to_input(self, lines):
+        with open(self.input_path, 'w', encoding='utf-8') as f:
+            for line in lines:
+                f.write(line + '\n')
+
+    def _read_file_lines(self, file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f.readlines()]
+        except FileNotFoundError:
+            return [] # Return empty list if file not found (e.g. for not_found test)
+
+    def test_basic_anonymization(self):
+        input_lines = [
+            "20/03/2023, 10:00 - Alice: Hello Bob",
+            "20/03/2023, 10:01 - Bob: Hi Alice",
+            "20/03/2023, 10:02 - Alice: How are you?"
+        ]
+        self._write_to_input(input_lines)
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+        
+        animal1 = ANIMAL_NAMES[0]
+        animal2 = ANIMAL_NAMES[1]
+        
+        expected_lines = [
+            f"20/03/2023, 10:00 - user_1_{animal1}: Hello Bob",
+            f"20/03/2023, 10:01 - user_2_{animal2}: Hi Alice",
+            f"20/03/2023, 10:02 - user_1_{animal1}: How are you?"
+        ]
+        self.assertEqual(output_lines, expected_lines)
+
+    def test_system_messages(self):
+        input_lines = [
+            "20/03/2023, 10:00 - System: Alice added Bob",
+            "20/03/2023, 10:01 - Carol: Hello everyone",
+            "This is a line that won't be parsed by _parse_line."
+        ]
+        self._write_to_input(input_lines)
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+        
+        animal1 = ANIMAL_NAMES[0] # Carol will be user_1
+
+        expected_lines = [
+            "20/03/2023, 10:00 - System: Alice added Bob",
+            f"20/03/2023, 10:01 - user_1_{animal1}: Hello everyone",
+            "This is a line that won't be parsed by _parse_line."
+        ]
+        self.assertEqual(output_lines, expected_lines)
+
+    def test_username_in_message_content(self):
+        input_lines = [
+            "20/03/2023, 10:00 - Dave: Hey Eve, how is Dave doing?",
+            "20/03/2023, 10:01 - Eve: Dave is fine."
+        ]
+        self._write_to_input(input_lines)
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+
+        animal1 = ANIMAL_NAMES[0] # Dave
+        animal2 = ANIMAL_NAMES[1] # Eve
+        
+        expected_lines = [
+            f"20/03/2023, 10:00 - user_1_{animal1}: Hey Eve, how is Dave doing?",
+            f"20/03/2023, 10:01 - user_2_{animal2}: Dave is fine."
+        ]
+        self.assertEqual(output_lines, expected_lines)
+
+    def test_empty_input_file(self):
+        self._write_to_input([])
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+        self.assertEqual(output_lines, [])
+
+    def test_no_matching_chat_lines(self):
+        input_lines = [
+            "This is just some random text.",
+            "Another line without WhatsApp format.",
+            "12345"
+        ]
+        self._write_to_input(input_lines)
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+        # Expect output to be same as input, plus newline handling (strip ensures comparison is fair)
+        self.assertEqual(output_lines, input_lines)
+
+    def test_animal_list_cycling(self):
+        num_users = len(ANIMAL_NAMES) + 2  # e.g., 12 users if 10 animals
+        input_lines = []
+        expected_lines = []
+        for i in range(num_users):
+            user_name = f"User{i+1}"
+            input_lines.append(f"20/03/2023, 10:{i:02d} - {user_name}: Message {i+1}")
+            
+            animal_index = i % len(ANIMAL_NAMES)
+            expected_animal = ANIMAL_NAMES[animal_index]
+            expected_lines.append(f"20/03/2023, 10:{i:02d} - user_{i+1}_{expected_animal}: Message {i+1}")
+            
+        self._write_to_input(input_lines)
+        anonymize(self.input_path, self.output_path)
+        output_lines = self._read_file_lines(self.output_path)
+        self.assertEqual(output_lines, expected_lines)
+
+    def test_input_file_not_found(self):
+        # Ensure the input file does not exist
+        non_existent_input_path = "/tmp/this_file_should_definitely_not_exist_for_test.txt"
+        if os.path.exists(non_existent_input_path):
+             os.remove(non_existent_input_path) # Just in case
+
+        # Suppress print output from anonymize for this test
+        import sys
+        from io import StringIO
+        original_stdout = sys.stdout
+        sys.stdout = captured_output = StringIO()
+
+        anonymize(non_existent_input_path, self.output_path)
+        
+        sys.stdout = original_stdout # Restore stdout
+        
+        # Check that an error message was printed (optional, but good to confirm)
+        # self.assertIn("Error: Input file", captured_output.getvalue())
+
+        # Check that the output file was not created or is empty
+        output_lines = self._read_file_lines(self.output_path)
+        self.assertEqual(output_lines, [], "Output file should be empty or not created if input is not found.")
+
 
 if __name__ == '__main__':
     unittest.main()

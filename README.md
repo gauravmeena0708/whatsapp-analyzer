@@ -70,6 +70,23 @@ analyzer.generate_report()
 # Replace "User1", "User2" with actual names as they appear in the chat.
 ```
 
+### Anonymizing Chat Data
+
+If you need to anonymize chat data before analysis (e.g., for privacy reasons), you can use the `anonymize` utility function. This function reads a WhatsApp chat file, replaces actual usernames with placeholder names in the format "user_ID_Animal" (e.g., "user_1_Panda", "user_2_Shark"), and saves the result to a new file. System messages and original message content (including any names mentioned there) are preserved.
+
+Here's how to use it:
+
+```python
+from whatsapp_analyzer.utils import anonymize
+
+input_chat_file = "path/to/your/original_whatsapp_chat.txt"
+anonymized_chat_file = "path/to/your/anonymized_chat.txt"
+
+anonymize(input_chat_file, anonymized_chat_file)
+print(f"Anonymized chat has been saved to: {anonymized_chat_file}")
+```
+After running this, you can use the `anonymized_chat_file` as the input for `WhatsAppAnalyzer`.
+
 ### As an example script
 
 The project includes an example script `whatsapp_analyzer/run.py` that demonstrates how to use the `WhatsAppAnalyzer` class.
