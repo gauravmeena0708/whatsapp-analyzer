@@ -229,46 +229,46 @@ body {{
                     <div class="section">
                         <h2 class="section-title">User Stats</h2>
                         <table class="table table-striped">
-                            <tr><th>Total Messages</th><td>{total_messages}</td></tr>
-                            <tr><th>Total Words</th><td>{total_words}</td></tr>
-                            <tr><th>Unique Users</th><td>{unique_users}</td></tr>
-                            <tr><th>Total Emojis</th><td>{total_emojis}</td></tr>
-                            <tr><th>Top 5 Emojis</th><td class="emoji">{top_5_emojis}</td></tr>
-                            <tr><th>Total URLs</th><td>{total_urls}</td></tr>
-                            <tr><th>Total YouTube URLs</th><td>{total_youtube_urls}</td></tr>
-                            <tr><th>Total Media</th><td>{total_media}</td></tr>
-                            <tr><th>Total Edits</th><td>{total_edits}</td></tr>
-                            <tr><th>Total Deletes</th><td>{total_deletes}</td></tr>
-                            <tr><th>Average Message Length</th><td>{average_message_length:.2f}</td></tr>
-                            <tr><th>Average Sentence Length</th><td>{average_sentence_length:.2f}</td></tr>
-                            <tr><th>Positive Messages</th><td>{positive_messages}</td></tr>
-                            <tr><th>Negative Messages</th><td>{negative_messages}</td></tr>
-                            <tr><th>Morning Messages</th><td>{morning_messages}</td></tr>
-                            <tr><th>Mid-day Messages</th><td>{midday_messages}</td></tr>
-                            <tr><th>Evening Messages</th><td>{evening_messages}</td></tr>
-                            <tr><th>Night Messages</th><td>{night_messages}</td></tr>
-                            <tr><th>Most Active Period</th><td>{most_active_period}</td></tr>
-                            <tr><th>Unique Words Count</th><td>{unique_words_count}</td></tr>
-                            <tr><th>Average Response Time (minutes)</th><td>{average_response_time:.2f}</td></tr>
+                            <tr><th>Total Messages</th><td>{Total Messages}</td></tr>
+                            <tr><th>Total Words</th><td>{Total Words}</td></tr>
+                            <tr><th>Unique Users</th><td>{Unique Users}</td></tr>
+                            <tr><th>Total Emojis</th><td>{Total Emojis}</td></tr>
+                            <tr><th>Top 5 Emojis</th><td class="emoji">{top_5_emojis_html}</td></tr>
+                            <tr><th>Total URLs</th><td>{Total URLs}</td></tr>
+                            <tr><th>Total YouTube URLs</th><td>{Total YouTube URLs}</td></tr>
+                            <tr><th>Total Media</th><td>{Total Media}</td></tr>
+                            <tr><th>Total Edits</th><td>{Total Edits}</td></tr>
+                            <tr><th>Total Deletes</th><td>{Total Deletes}</td></tr>
+                            <tr><th>Average Message Length</th><td>{Average Message Length:.2f}</td></tr>
+                            <tr><th>Average Sentence Length</th><td>{Average Sentence Length:.2f}</td></tr>
+                            <tr><th>Positive Messages</th><td>{Positive Messages}</td></tr>
+                            <tr><th>Negative Messages</th><td>{Negative Messages}</td></tr>
+                            <tr><th>Morning Messages</th><td>{Morning Messages}</td></tr>
+                            <tr><th>Mid-day Messages</th><td>{Mid-day Messages}</td></tr>
+                            <tr><th>Evening Messages</th><td>{Evening Messages}</td></tr>
+                            <tr><th>Night Messages</th><td>{Night Messages}</td></tr>
+                            <tr><th>Most Active Period</th><td>{Most Active Period}</td></tr>
+                            <tr><th>Unique Words Count</th><td>{Unique Words Count}</td></tr>
+                            <tr><th>Average Response Time (minutes)</th><td>{Average Response Time:.2f}</td></tr>
                         </table>
                     </div>
                     <div class="section">
                         <h2 class="section-title">Common Words</h2>
                         <h3>Unigrams</h3>
                         <ul>
-                            {common_unigrams}
+                            {Common Unigrams}
                         </ul>
                         <h3>Bigrams</h3>
                         <ul>
-                            {common_bigrams}
+                            {Common Bigrams}
                         </ul>
                         <h3>Trigrams</h3>
                         <ul>
-                            {common_trigrams}
+                            {Common Trigrams}
                         </ul>
                         <h3>Hindi abuse</h3>
                         <ul>
-                            {hindi_abuse_count}
+                            {Hindi Abuse Counts}
                         </ul>
                     </div>
                     <div class="section">
@@ -276,67 +276,67 @@ body {{
                               
                         <div class="visualization">
                             <h4>Most Active Hours</h4>
-                            <img src="data:image/png;base64,{most_active_hours}" alt="Most Active Hours">
+                            <img src="data:image/png;base64,{Most Active Hours}" alt="Most Active Hours">
                         </div>
 
     
                         <div class="visualization">
                             <h4>Activity Heatmap</h4>
-                            <img src="data:image/png;base64,{activity_heatmap}" alt="Activity Heatmap">
+                            <img src="data:image/png;base64,{Activity Heatmap}" alt="Activity Heatmap">
                         </div>
                         <div class="visualization">
                             <h4>Response Time Distribution</h4>
-                            <img src="data:image/png;base64,{response_time_distribution}" alt="Response Time Distribution">
+                            <img src="data:image/png;base64,{Response Time Distribution}" alt="Response Time Distribution">
                         </div>
                         <div class="visualization">
                             <h4>Sentiment Over Time</h4>
-                            <img src="data:image/png;base64,{sentiment_over_time}" alt="Sentiment Over Time">
+                            <img src="data:image/png;base64,{Sentiment Over Time}" alt="Sentiment Over Time">
                         </div>
                         <div class="visualization">
                             <h4>Emoji Usage</h4>
-                            <img src="data:image/png;base64,{emoji_usage}" alt="Emoji Usage">
+                            <img src="data:image/png;base64,{Emoji Usage}" alt="Emoji Usage">
                         </div>
                         <div class="visualization">
                             <h4>Sentiment Distribution</h4>
-                            <img src="data:image/png;base64,{sentiment_distribution}" alt="Sentiment Distribution">
+                            <img src="data:image/png;base64,{Sentiment Distribution}" alt="Sentiment Distribution">
                         </div>
                         <div class="visualization">
                             <h4>Sentiment (Bubble)</h4>
-                            <img src="data:image/png;base64,{sentiment_bubble}" alt="Sentiment Bubble">
+                            <img src="data:image/png;base64,{Sentiment Bubble}" alt="Sentiment Bubble">
                         </div>
                         <div class="visualization">
                             <h4>Vocabulary Diversity</h4>
-                            <img src="data:image/png;base64,{vocabulary_diversity}" alt="Vocabulary Diversity">
+                            <img src="data:image/png;base64,{Vocabulary Diversity}" alt="Vocabulary Diversity">
                         </div>
                         <div class="visualization">
                             <h4>Language Complexity</h4>
-                            <img src="data:image/png;base64,{language_complexity}" alt="Language Complexity">
+                            <img src="data:image/png;base64,{Language Complexity}" alt="Language Complexity">
                         </div>
                         <div class="visualization">
                             <h4>Language Complexity (POS)</h4>
-                            <img src="data:image/png;base64,{language_complexity_pos}" alt="Language Complexity POS">
+                            <img src="data:image/png;base64,{Language Complexity POS}" alt="Language Complexity POS">
                         </div>
                         <div class="visualization">
                             <h4>User Relationship Graph</h4>
-                            <img src="data:image/png;base64,{user_relationship_graph}" alt="User Relationship Graph">
+                            <img src="data:image/png;base64,{User Relationship Graph}" alt="User Relationship Graph">
                         </div>
                         <div class="visualization">
                             <h4>Skills Radar Chart</h4>
-                            <img src="data:image/png;base64,{skills_radar_chart}" alt="Skills Radar Chart">
+                            <img src="data:image/png;base64,{Skills Radar Chart}" alt="Skills Radar Chart">
                         </div>
                         <div class="visualization">
                             <h4>Emotion Trends (Time Series)</h4>
-                            <img src="data:image/png;base64,{emotion_over_time}" alt="Emotion Over Time">
+                            <img src="data:image/png;base64,{Emotion Over Time}" alt="Emotion Over Time">
                         </div>
                         <div class="visualization">
                             <h4>Word Cloud</h4>
-                            <img src="data:image/png;base64,{word_cloud}" alt="Word Cloud">
+                            <img src="data:image/png;base64,{Word Cloud}" alt="Word Cloud">
                         </div>
                     </div>
                     <div class="section">
                         <h2 class="section-title">Behavioral Insights</h2>
                         <div class="insights">
-                            {behavioral_insights_text}
+                            {Behavioral Insights Text}
                         </div>
                     </div>
                 </div>
