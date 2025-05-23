@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User-Specific WhatsApp Chat Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Energetic & Playful - Light Background */
+            color: #1e293b; /* Energetic & Playful - Dark Text */
+        }
+        .analysis-section-wrapper, .analysis-card {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 2rem;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+         @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+                max-height: 400px;
+            }
+        }
+        .stat-card {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px -1px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #ff5733; /* Energetic & Playful - Primary */
+        }
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.8rem;
+        }
+        #loadingIndicator {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #ff5733; /* Energetic & Playful - Primary */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .user-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Adjusted minmax for better fit */
+            gap: 1.5rem; /* Adjusted gap */
+        }
+        .list-item {
+            padding: 0.35rem 0; /* Adjusted padding */
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        .list-item strong {
+            color: #2c3e50; /* Darker label for list items */
+        }
+        select:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold" style="color: #ff5733;">User-Specific WhatsApp Chat Analyzer</h1>
+            <p class="text-md text-slate-600 mt-2">Upload a chat file and select a user to see their detailed activity.</p>
+        </header>
+
+        <section id="controlsSection" class="mb-8 bg-white p-6 rounded-lg shadow-md flex flex-col md:flex-row gap-4 items-center">
+            <div class="flex-grow w-full md:w-auto">
+                <label for="chatFile" class="block text-sm font-medium text-slate-700 mb-1">1. Upload Chat File (.txt):</label>
+                <input type="file" id="chatFile" accept=".txt" class="block w-full text-sm text-slate-500
+                    file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold
+                    file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer"/>
+            </div>
+            <div class="flex-grow w-full md:w-auto">
+                <label for="userSelect" class="block text-sm font-medium text-slate-700 mb-1">2. Select User:</label>
+                <select id="userSelect" class="block w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm" disabled>
+                    <option value="">Upload a file first</option>
+                </select>
+            </div>
+        </section>
+
+        <div id="loadingIndicator" class="hidden"></div>
+        <div id="errorMessage" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span class="block sm:inline" id="errorText"></span>
+        </div>
+
+        <section id="userResultsSection" class="hidden">
+            <h2 class="text-2xl font-semibold mb-6 text-slate-700">Analysis for <span id="selectedUserName" class="text-orange-600"></span></h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="stat-card">
+                    <div id="userTotalMessages" class="stat-value">0</div>
+                    <p class="stat-label">Total Messages Sent</p>
+                </div>
+                <div class="stat-card">
+                    <div id="userPercentageOfChat" class="stat-value">0%</div>
+                    <p class="stat-label">% of Total Chat</p>
+                </div>
+                <div class="stat-card">
+                    <div id="userMediaMessages" class="stat-value">0</div>
+                    <p class="stat-label">Media Messages Sent</p>
+                </div>
+                <div class="stat-card">
+                    <div id="userLinksShared" class="stat-value">0</div>
+                    <p class="stat-label">Links Shared</p>
+                </div>
+            </div>
+
+            <div class="user-stats-grid mb-6">
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">General Stats</h3>
+                    <ul id="userGeneralStats" class="text-sm text-slate-600 space-y-1">
+                        <li class="list-item"><strong>Avg. Msg Length:</strong> <span id="userAvgMsgLength" class="font-medium">0</span> chars</li>
+                        <li class="list-item"><strong>Questions Asked:</strong> <span id="userQuestionsAsked" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>Question/Statement Ratio:</strong> <span id="userQSRatio" class="font-medium">0.00</span></li>
+                        <li class="list-item"><strong>Emoji-Only Msgs:</strong> <span id="userEmojiOnlyMessages" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>First Message:</strong> <span id="userFirstMessageTime" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>Last Message:</strong> <span id="userLastMessageTime" class="font-medium">N/A</span></li>
+                    </ul>
+                </div>
+
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Activity Patterns</h3>
+                    <ul class="text-sm text-slate-600 space-y-1 user-stat-list">
+                        <li class="list-item"><strong>Most Active Hour:</strong> <span id="userMostActiveHour" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>Most Active Day:</strong> <span id="userMostActiveDay" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>Most Active Month:</strong> <span id="userMostActiveMonth" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>Weekday Messages:</strong> <span id="userWeekdayMsgCount" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>Weekend Messages:</strong> <span id="userWeekendMsgCount" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>Conversation Starts:</strong> <span id="userConversationStarts" class="font-medium">0</span></li>
+                    </ul>
+                </div>
+
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Content Insights</h3>
+                    <ul class="text-sm text-slate-600 space-y-1 user-stat-list">
+                        <li class="list-item"><strong>Longest Message:</strong> <pre id="userLongestMessage" class="font-medium"></pre></li>
+                        <li class="list-item"><strong>Shortest Text Message:</strong> <span id="userShortestMessage" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>Most Used Punctuation:</strong> <span id="userMostPunctuation" class="font-medium">N/A</span></li>
+                        <li class="list-item"><strong>ALL CAPS Messages:</strong> <span id="userAllCapsCount" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>Vocabulary Richness (TTR):</strong> <span id="userTTR" class="font-medium">0.00</span></li>
+                        <li class="list-item"><strong>"Thank You" Phrases:</strong> <span id="userThanksCount" class="font-medium">0</span></li>
+                        <li class="list-item"><strong>"Sorry" Phrases:</strong> <span id="userSorryCount" class="font-medium">0</span></li>
+                    </ul>
+                </div>
+
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Message Length Profile</h3>
+                    <ul id="userMessageLengthDist" class="text-sm text-slate-600 space-y-1 user-stat-list"></ul>
+                </div>
+
+
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Top 5 Emojis</h3>
+                    <ul id="userTopEmojis" class="text-sm text-slate-600 user-stat-list"></ul>
+                </div>
+                 <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Top 3 Shared Websites</h3>
+                    <ul id="userTopDomains" class="text-sm text-slate-600 user-stat-list"></ul>
+                </div>
+
+                 <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Top 5 Words</h3>
+                    <ul id="userTopWords" class="text-sm text-slate-600 user-stat-list"></ul>
+                </div>
+                 <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Top 5 Bigrams</h3>
+                    <ul id="userTopBigrams" class="text-sm text-slate-600 user-stat-list"></ul>
+                </div>
+                <div class="analysis-card">
+                    <h3 class="text-lg font-semibold mb-3 text-orange-500">Top 5 Trigrams</h3>
+                    <ul id="userTopTrigrams" class="text-sm text-slate-600 user-stat-list"></ul>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="analysis-section-wrapper">
+                    <h3 class="text-xl font-semibold mb-3 text-slate-600">Activity by Hour of Day</h3>
+                    <div class="chart-container">
+                        <canvas id="userHourlyActivityChart"></canvas>
+                    </div>
+                </div>
+                <div class="analysis-section-wrapper">
+                    <h3 class="text-xl font-semibold mb-3 text-slate-600">Activity by Day of Week</h3>
+                    <div class="chart-container">
+                        <canvas id="userDayOfWeekActivityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="text-center p-6 mt-12 text-slate-500 text-sm">
+        <p>&copy; 2025 User-Specific WhatsApp Chat Analyzer.</p>
+    </footer>
+
+    <script>
+        const chatFileInput = document.getElementById('chatFile');
+        const userSelect = document.getElementById('userSelect');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const userResultsSection = document.getElementById('userResultsSection');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const errorTextSpan = document.getElementById('errorText');
+
+        let allMessages = [];
+        let uniqueSenders = [];
+        let userCharts = {};
+
+        const primaryColor = '#ff5733';
+        const accent1Color = '#ff8c42';
+        const accent2Color = '#33c7ff';
+        const accent3Color = '#ffe066';
+
+        const systemActionKeywords = [
+            'added', 'changed this group\'s icon', 'changed the group name',
+            'pinned a message', 'left', 'removed', 'created group',
+            'messages and calls are end-to-end encrypted', 'you were added',
+            'changed their phone number to a new number', 'changed your security code', 'was added',
+            'joined using this group\'s invite link', 'icon changed', 'deleted this message',
+            'you\'re now an admin', 'blocked', 'unblocked', 'security code changed'
+        ];
+        const userMessageContentRegex = /^([^:]+?):\s*([\s\S]*)/;
+
+
+        chatFileInput.addEventListener('change', handleFileUpload);
+        userSelect.addEventListener('change', displayUserAnalysis);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                loadingIndicator.classList.remove('hidden');
+                userResultsSection.classList.add('hidden');
+                errorMessageDiv.classList.add('hidden');
+                userSelect.innerHTML = '<option value="">Parsing file...</option>';
+                userSelect.disabled = true;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const chatText = e.target.result;
+                        allMessages = parseChat(chatText);
+                        if (allMessages.length === 0) {
+                            throw new Error("No user messages parsed. Please check the file format or content. System messages are excluded.");
+                        }
+                        uniqueSenders = [...new Set(allMessages.map(msg => msg.sender))].filter(sender => sender !== "System").sort();
+
+                        populateUserDropdown();
+                        userSelect.disabled = false;
+                        if (uniqueSenders.length > 0) {
+                            userSelect.value = uniqueSenders[0];
+                            displayUserAnalysis();
+                        } else {
+                             userResultsSection.classList.add('hidden');
+                             throw new Error("No users found in the chat after filtering system messages.");
+                        }
+
+                    } catch (error) {
+                        console.error("Error processing chat:", error);
+                        errorTextSpan.textContent = `Error processing chat: ${error.message}`;
+                        errorMessageDiv.classList.remove('hidden');
+                        userSelect.innerHTML = '<option value="">Upload a file first</option>';
+                    } finally {
+                        loadingIndicator.classList.add('hidden');
+                    }
+                };
+                reader.onerror = () => {
+                    loadingIndicator.classList.add('hidden');
+                    errorTextSpan.textContent = "Error reading file.";
+                    errorMessageDiv.classList.remove('hidden');
+                    userSelect.innerHTML = '<option value="">Upload a file first</option>';
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function populateUserDropdown() {
+            userSelect.innerHTML = '<option value="">Select a User</option>';
+            if (uniqueSenders.length === 0) {
+                 userSelect.innerHTML = '<option value="">No users found in chat</option>';
+                 return;
+            }
+            uniqueSenders.forEach(sender => {
+                const option = document.createElement('option');
+                option.value = sender;
+                option.textContent = sender;
+                userSelect.appendChild(option);
+            });
+        }
+
+        function parseTimestamp(dateStr, timeStr, ampmStr) {
+            const dateParts = dateStr.split('/');
+            let day, month, year;
+
+            // Try MM/DD/YY(YY) first (common in US exports)
+            if (parseInt(dateParts[0]) <= 12 && parseInt(dateParts[1]) <= 31) {
+                 month = parseInt(dateParts[0]) - 1;
+                 day = parseInt(dateParts[1]);
+                 year = parseInt(dateParts[2].length === 2 ? '20' + dateParts[2] : dateParts[2]);
+            } // Else try DD/MM/YY(YY)
+            else if (parseInt(dateParts[0]) <= 31 && parseInt(dateParts[1]) <= 12) {
+                day = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+                year = parseInt(dateParts[2].length === 2 ? '20' + dateParts[2] : dateParts[2]);
+            } else { // Fallback or ambiguous format - default to MM/DD
+                 month = parseInt(dateParts[0]) - 1;
+                 day = parseInt(dateParts[1]);
+                 year = parseInt(dateParts[2].length === 2 ? '20' + dateParts[2] : dateParts[2]);
+            }
+
+
+            let hours, minutes;
+            const timeParts = timeStr.split(':');
+            hours = parseInt(timeParts[0]);
+            minutes = parseInt(timeParts[1]);
+
+            if (ampmStr) {
+                const ampm = ampmStr.toLowerCase().replace(/\./g, '');
+                if ((ampm === 'pm') && hours < 12) hours += 12;
+                if ((ampm === 'am') && hours === 12) hours = 0;
+            }
+
+            const timestamp = new Date(year, month, day, hours, minutes);
+            return isNaN(timestamp.getTime()) ? null : timestamp;
+        }
+
+
+        function finalizeMessage(msgObj) {
+            const finalMessageContent = msgObj.rawContent.join("\n");
+            const isMedia = finalMessageContent === "<Media omitted>" || finalMessageContent.includes(" omitted>"); // Broader media check
+            const links = (finalMessageContent.match(/https?:\/\/[^\s/$.?#].[^\s]*/gi) || []);
+            const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{200D}]/gu; // Added U+200D for ZWJ
+            const emojis = (finalMessageContent.match(emojiRegex) || []);
+
+            let isUserMessage = msgObj.isUserMessage;
+            if (isUserMessage) {
+                if (msgObj.sender.length > 50 && systemActionKeywords.some(keyword => msgObj.sender.toLowerCase().includes(keyword))) {
+                     isUserMessage = false;
+                     msgObj.sender = "System";
+                }
+            }
+             // Additional check for system messages that might be misparsed as user messages due to sender-like prefix
+            if(isUserMessage && systemActionKeywords.some(keyword => finalMessageContent.toLowerCase().startsWith(keyword) && finalMessageContent.length < 80 && !finalMessageContent.includes(': '))) {
+                 // If message content starts with a system keyword, is short, and lacks a colon typical of user messages
+                 isUserMessage = false;
+                 msgObj.sender = "System"; // The content itself is the system message
+            }
+
+
+            return {
+                timestamp: msgObj.timestamp,
+                sender: msgObj.sender,
+                message: finalMessageContent,
+                isMedia,
+                links,
+                emojis,
+                isUserMessage: isUserMessage
+            };
+        }
+
+        function parseChat(chatText) {
+            const messages = [];
+            const lines = chatText.split('\n');
+             // Regex to match main message lines, accommodating optional seconds and flexible AM/PM
+            const newMsgLineRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*([ap]\.?m\.?)?\s*-\s*(.*)$/i;
+
+
+            let currentMessageObj = null;
+
+            for (const line of lines) {
+                const lineTrimmed = line.trim();
+                if (!lineTrimmed) continue;
+
+                const newMsgMatch = lineTrimmed.match(newMsgLineRegex);
+
+                if (newMsgMatch) {
+                    if (currentMessageObj) {
+                        messages.push(finalizeMessage(currentMessageObj));
+                    }
+
+                    const dateStr = newMsgMatch[1];
+                    const timeStr = newMsgMatch[2];
+                    const ampmStr = newMsgMatch[3]; // Might be undefined if 24-hour format
+                    const contentAfterDash = newMsgMatch[4].trim();
+
+                    const timestamp = parseTimestamp(dateStr, timeStr, ampmStr);
+                    if (!timestamp) {
+                        currentMessageObj = null;
+                        continue;
+                    }
+
+                    const userMsgContentMatch = contentAfterDash.match(userMessageContentRegex);
+                    let sender, messageContent, isUserMsg;
+
+                    if (userMsgContentMatch) {
+                        sender = userMsgContentMatch[1].trim();
+                        messageContent = userMsgContentMatch[2].trim();
+                        isUserMsg = true;
+                        
+                        // Heuristic: If sender is very long or sounds like a system action, it's likely a system message
+                        if (sender.length > 50 || systemActionKeywords.some(keyword => sender.toLowerCase().includes(keyword))) {
+                            isUserMsg = false;
+                            messageContent = sender + (messageContent ? ": " + messageContent : ""); // Reconstruct
+                            sender = "System";
+                        } else {
+                            // Further check: if the "messageContent" itself looks like a system action by the "sender"
+                            const potentialActionText = messageContent.toLowerCase();
+                            if (systemActionKeywords.some(keyword => potentialActionText.includes(keyword))) {
+                                let isPureAction = false;
+                                for(const keyword of systemActionKeywords){
+                                   // Check if message starts with a keyword and is relatively short, or is an exact match
+                                   if( (potentialActionText.startsWith(keyword) && messageContent.length < (keyword.length + 15)) ||
+                                       systemActionKeywords.some(k => potentialActionText === k)) {
+                                       isPureAction = true;
+                                       break;
+                                   }
+                                }
+                               if(isPureAction && (messageContent.split(' ').length < 7 || !messageContent.includes(':'))) { // Short action phrases
+                                   isUserMsg = false;
+                                   messageContent = sender + ": " + messageContent;
+                                   sender = "System";
+                               }
+                            }
+                        }
+                    } else {
+                        sender = "System";
+                        messageContent = contentAfterDash;
+                        isUserMsg = false;
+                    }
+                    currentMessageObj = { timestamp, sender, message: messageContent, isUserMessage: isUserMsg, rawContent: [messageContent] };
+
+                } else if (currentMessageObj) {
+                    currentMessageObj.rawContent.push(lineTrimmed);
+                }
+            }
+
+            if (currentMessageObj) {
+                messages.push(finalizeMessage(currentMessageObj));
+            }
+
+            return messages.filter(m => m.isUserMessage && m.sender !== "System");
+        }
+
+
+        function displayUserAnalysis() {
+            const selectedUser = userSelect.value;
+            if (!selectedUser || allMessages.length === 0) {
+                userResultsSection.classList.add('hidden');
+                return;
+            }
+
+            loadingIndicator.classList.remove('hidden');
+            userResultsSection.classList.add('hidden');
+
+            setTimeout(() => {
+                try {
+                    const userMessages = allMessages.filter(msg => msg.sender === selectedUser);
+                    document.getElementById('selectedUserName').textContent = selectedUser;
+
+                    if (Object.keys(userCharts).length > 0) {
+                        for (const chartId in userCharts) {
+                            if (userCharts[chartId] instanceof Chart) {
+                                userCharts[chartId].destroy();
+                            }
+                        }
+                        userCharts = {};
+                    }
+
+                    document.getElementById('userTotalMessages').textContent = userMessages.length;
+                    const percentageOfChat = allMessages.length > 0 ? ((userMessages.length / allMessages.length) * 100).toFixed(1) + '%' : '0%';
+                    document.getElementById('userPercentageOfChat').textContent = percentageOfChat;
+
+                    let userMediaCount = 0;
+                    let userLinkCount = 0;
+                    let userQuestions = 0;
+                    let userEmojiOnly = 0;
+
+                    userMessages.forEach(msg => {
+                        if (msg.isMedia) userMediaCount++;
+                        userLinkCount += msg.links.length;
+                        if (msg.message.trim().endsWith('?')) userQuestions++;
+                        if (!msg.isMedia && msg.message.trim().length > 0 && msg.emojis.length > 0) {
+                            const nonEmojiChars = msg.message.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{200D}]/gu, '').trim();
+                            if (nonEmojiChars.length === 0) userEmojiOnly++;
+                        }
+                    });
+                    document.getElementById('userMediaMessages').textContent = userMediaCount;
+                    document.getElementById('userLinksShared').textContent = userLinkCount;
+                    document.getElementById('userQuestionsAsked').textContent = userQuestions;
+                    document.getElementById('userEmojiOnlyMessages').textContent = userEmojiOnly;
+
+                    const stopWords = getStopWords();
+
+                    // General Stats
+                    document.getElementById('userAvgMsgLength').textContent = getAverageMessageLength(userMessages).toFixed(1);
+                     if (userMessages.length > 0) {
+                        document.getElementById('userFirstMessageTime').textContent = userMessages[0].timestamp.toLocaleString('en-GB');
+                        document.getElementById('userLastMessageTime').textContent = userMessages[userMessages.length - 1].timestamp.toLocaleString('en-GB');
+                    } else {
+                        document.getElementById('userFirstMessageTime').textContent = "N/A";
+                        document.getElementById('userLastMessageTime').textContent = "N/A";
+                    }
+                    document.getElementById('userQSRatio').textContent = getQuestionToStatementRatio(userMessages, userQuestions).toFixed(2);
+
+
+                    // Word, Emoji, Domain Frequencies
+                    const { topWordsData, topWordsLabels } = getWordFrequency(userMessages, stopWords, 5);
+                    populateList('userTopWords', topWordsLabels, topWordsData, "No significant words.");
+
+                    const { topEmojisData, topEmojisLabels } = getEmojiFrequency(userMessages, 5);
+                    populateList('userTopEmojis', topEmojisLabels, topEmojisData, "No emojis found.");
+
+                    const { topDomainsData, topDomainsLabels } = getLinkDomainFrequency(userMessages, 3);
+                    populateList('userTopDomains', topDomainsLabels, topDomainsData, "No links shared.");
+
+                    // N-grams
+                    const { topBigramsLabels, topBigramsData } = getNgrams(userMessages, 2, 5, stopWords);
+                    populateList('userTopBigrams', topBigramsLabels, topBigramsData, "Not enough data for bigrams.");
+
+                    const { topTrigramsLabels, topTrigramsData } = getNgrams(userMessages, 3, 5, stopWords);
+                    populateList('userTopTrigrams', topTrigramsLabels, topTrigramsData, "Not enough data for trigrams.");
+
+
+                    // Activity Patterns
+                    const { hourlyActivityData, hourlyActivityLabels } = getActivityOverTime(userMessages, 'hourly');
+                    renderUserChart('userHourlyActivityChart', 'bar', { labels: hourlyActivityLabels, datasets: [{ label: 'Messages', data: hourlyActivityData, backgroundColor: accent1Color }] });
+                    document.getElementById('userMostActiveHour').textContent = getPeakActivity(hourlyActivityData, hourlyActivityLabels);
+
+                    const { dayOfWeekActivityData, dayOfWeekActivityLabels } = getActivityOverTime(userMessages, 'dayOfWeek');
+                    renderUserChart('userDayOfWeekActivityChart', 'bar', { labels: dayOfWeekActivityLabels, datasets: [{ label: 'Messages', data: dayOfWeekActivityData, backgroundColor: accent2Color }] });
+                    document.getElementById('userMostActiveDay').textContent = getPeakActivity(dayOfWeekActivityData, dayOfWeekActivityLabels);
+                    
+                    const { monthActivityData, monthActivityLabels } = getActivityOverTime(userMessages, 'monthly');
+                    document.getElementById('userMostActiveMonth').textContent = getPeakActivity(monthActivityData, monthActivityLabels);
+                    
+                    const { weekdayCount, weekendCount } = getWeekendWeekdayCounts(userMessages);
+                    document.getElementById('userWeekdayMsgCount').textContent = weekdayCount;
+                    document.getElementById('userWeekendMsgCount').textContent = weekendCount;
+                    document.getElementById('userConversationStarts').textContent = getConversationInitiations(userMessages, 2);
+
+
+                    // Content Insights
+                    const { longestMsg, shortestMsg } = getLongestShortestMessages(userMessages);
+                    document.getElementById('userLongestMessage').textContent = longestMsg || "N/A";
+                    document.getElementById('userShortestMessage').textContent = shortestMsg || "N/A";
+                    document.getElementById('userMostPunctuation').textContent = getMostUsedPunctuation(userMessages, 3).join(', ') || "N/A";
+                    document.getElementById('userAllCapsCount').textContent = getAllCapsMessagesCount(userMessages);
+                    document.getElementById('userTTR').textContent = getVocabularyRichness(userMessages, stopWords).toFixed(3);
+                    document.getElementById('userThanksCount').textContent = getCountOfSpecificPhrases(userMessages, ['thank you', 'thanks', 'thx', 'ty', 'appreciate it']);
+                    document.getElementById('userSorryCount').textContent = getCountOfSpecificPhrases(userMessages, ['sorry', 'apologies', 'my bad', 'apologize']);
+                    
+                    // Message Length Distribution
+                    const lengthDist = getMessageLengthDistribution(userMessages, { short: 50, medium: 200 });
+                    const distUl = document.getElementById('userMessageLengthDist');
+                    distUl.innerHTML = '';
+                    for (const category in lengthDist) {
+                        const li = document.createElement('li');
+                        li.className = 'list-item';
+                        li.innerHTML = `<strong>${category.charAt(0).toUpperCase() + category.slice(1)} msgs:</strong> <span class="font-medium">${lengthDist[category].count} (${lengthDist[category].percentage}%)</span>`;
+                        distUl.appendChild(li);
+                    }
+
+
+                    userResultsSection.classList.remove('hidden');
+                } catch (error) {
+                    console.error("Error displaying analysis:", error);
+                    errorTextSpan.textContent = `Error displaying analysis: ${error.message}`;
+                    errorMessageDiv.classList.remove('hidden');
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                }
+            }, 50);
+        }
+
+        function populateList(elementId, labels, data, emptyMessage) {
+            const ul = document.getElementById(elementId);
+            ul.innerHTML = '';
+            if (labels.length > 0) {
+                labels.forEach((label, i) => {
+                    const li = document.createElement('li');
+                    li.className = 'list-item';
+                    li.textContent = `${label}: ${data[i]}`;
+                    ul.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'list-item';
+                li.textContent = emptyMessage;
+                ul.appendChild(li);
+            }
+        }
+
+        function getAverageMessageLength(userMessages) {
+            let totalLength = 0;
+            let textMessageCount = 0;
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    totalLength += msg.message.length;
+                    textMessageCount++;
+                }
+            });
+            return textMessageCount > 0 ? totalLength / textMessageCount : 0;
+        }
+
+        function getWordFrequency(messages, stopWords, topN = 5) {
+            const wordCounts = {};
+            messages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    const words = msg.message.toLowerCase().replace(/[^\w\s\u0900-\u097F]|_/g, "").replace(/\s+/g, " ").split(/\s+/);
+                    words.forEach(word => {
+                        if (word && word.length > 1 && !stopWords.has(word) && !/^\d+$/.test(word)) { // Min length 2
+                            wordCounts[word] = (wordCounts[word] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            const sortedWords = Object.entries(wordCounts).sort(([,a],[,b]) => b-a).slice(0, topN);
+            return {
+                topWordsData: sortedWords.map(entry => entry[1]),
+                topWordsLabels: sortedWords.map(entry => entry[0])
+            };
+        }
+
+        function getEmojiFrequency(messages, topN = 5) {
+            const emojiCounts = {};
+            messages.forEach(msg => {
+                msg.emojis.forEach(emoji => {
+                    emojiCounts[emoji] = (emojiCounts[emoji] || 0) + 1;
+                });
+            });
+            const sortedEmojis = Object.entries(emojiCounts).sort(([,a],[,b]) => b-a).slice(0, topN);
+            return {
+                topEmojisData: sortedEmojis.map(entry => entry[1]),
+                topEmojisLabels: sortedEmojis.map(entry => entry[0])
+            };
+        }
+
+        function getLinkDomainFrequency(userMessages, topN = 3) {
+            const domainCounts = {};
+            userMessages.forEach(msg => {
+                msg.links.forEach(link => {
+                    try {
+                        const url = new URL(link);
+                        let domain = url.hostname;
+                        if (domain.startsWith('www.')) domain = domain.substring(4);
+                        domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+                    } catch (e) { console.warn("Could not parse URL for domain:", link); }
+                });
+            });
+            const sortedDomains = Object.entries(domainCounts).sort(([,a],[,b]) => b-a).slice(0, topN);
+            return {
+                topDomainsData: sortedDomains.map(entry => entry[1]),
+                topDomainsLabels: sortedDomains.map(entry => entry[0])
+            };
+        }
+
+        function getActivityOverTime(messages, type) {
+            const activity = {};
+            messages.forEach(msg => {
+                if (!msg.timestamp) return;
+                let key;
+                if (type === 'hourly') {
+                    key = msg.timestamp.getHours().toString().padStart(2, '0') + ":00";
+                } else if (type === 'dayOfWeek') {
+                    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    key = days[msg.timestamp.getDay()];
+                } else if (type === 'monthly') {
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    key = months[msg.timestamp.getMonth()] + ' ' + msg.timestamp.getFullYear();
+                }
+                if (key) activity[key] = (activity[key] || 0) + 1;
+            });
+
+            let sortedActivity;
+            if (type === 'hourly') {
+                 sortedActivity = Object.entries(activity).sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
+            } else if (type === 'dayOfWeek') {
+                const dayOrder = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                sortedActivity = Object.entries(activity).sort((a,b) => dayOrder.indexOf(a[0]) - dayOrder.indexOf(b[0]));
+            } else if (type === 'monthly') {
+                // Sort chronologically for months
+                sortedActivity = Object.entries(activity).sort((a,b) => {
+                    const dateA = new Date(a[0].split(' ')[1], getStopWords().months.indexOf(a[0].split(' ')[0])); // A bit hacky, use proper month mapping
+                    const dateB = new Date(b[0].split(' ')[1], getStopWords().months.indexOf(b[0].split(' ')[0]));
+                    return dateA - dateB;
+                });
+            }
+             else {
+                sortedActivity = Object.entries(activity);
+            }
+            return {
+                [`${type}ActivityData`]: sortedActivity.map(entry => entry[1]),
+                [`${type}ActivityLabels`]: sortedActivity.map(entry => entry[0])
+            };
+        }
+        
+        function getPeakActivity(data, labels) {
+            if (!data || data.length === 0) return "N/A";
+            const maxVal = Math.max(...data);
+            const peakIndex = data.indexOf(maxVal);
+            return labels[peakIndex] || "N/A";
+        }
+
+        function getWeekendWeekdayCounts(userMessages) {
+            let weekdayCount = 0;
+            let weekendCount = 0;
+            userMessages.forEach(msg => {
+                if (!msg.timestamp) return;
+                const day = msg.timestamp.getDay(); // 0 (Sun) to 6 (Sat)
+                if (day === 0 || day === 6) {
+                    weekendCount++;
+                } else {
+                    weekdayCount++;
+                }
+            });
+            return { weekdayCount, weekendCount };
+        }
+
+        function getMostUsedPunctuation(userMessages, topN = 3) {
+            const punctuationCounts = {};
+            const punctuations = /[.,!?;:"']/g; // Regex for common punctuations
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    const found = msg.message.match(punctuations);
+                    if (found) {
+                        found.forEach(p => {
+                            punctuationCounts[p] = (punctuationCounts[p] || 0) + 1;
+                        });
+                    }
+                }
+            });
+            return Object.entries(punctuationCounts)
+                         .sort(([,a],[,b]) => b-a)
+                         .slice(0, topN)
+                         .map(entry => entry[0]);
+        }
+
+        function getLongestShortestMessages(userMessages) {
+            let longestMsg = "";
+            let shortestMsg = null;
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message && msg.message.trim().length > 0) {
+                    const currentMessage = msg.message.trim();
+                    if (currentMessage.length > longestMsg.length) {
+                        longestMsg = currentMessage;
+                    }
+                    if (shortestMsg === null || currentMessage.length < shortestMsg.length) {
+                        shortestMsg = currentMessage;
+                    }
+                }
+            });
+            return { longestMsg: longestMsg.substring(0, 200) + (longestMsg.length > 200 ? "..." : ""), shortestMsg }; // Truncate longest for display
+        }
+        
+        function getConversationInitiations(userMessages, gapHours = 2) {
+            if (userMessages.length === 0) return 0;
+            let initiations = 1; // First message is always an initiation for the user
+            const gapMilliseconds = gapHours * 60 * 60 * 1000;
+            for (let i = 1; i < userMessages.length; i++) {
+                if (userMessages[i].timestamp && userMessages[i-1].timestamp) {
+                    const timeDiff = userMessages[i].timestamp.getTime() - userMessages[i-1].timestamp.getTime();
+                    if (timeDiff > gapMilliseconds) {
+                        initiations++;
+                    }
+                }
+            }
+            return initiations;
+        }
+
+        function getAllCapsMessagesCount(userMessages) {
+            let count = 0;
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message && msg.message.length > 1) { // Min length 2 for all caps check
+                    const textOnly = msg.message.replace(/[^a-zA-Z]/g, ""); // Consider only letters
+                    if (textOnly.length > 0 && textOnly === textOnly.toUpperCase()) {
+                        count++;
+                    }
+                }
+            });
+            return count;
+        }
+
+        function getMessageLengthDistribution(userMessages, ranges = { short: 50, medium: 200 }) {
+            const dist = { short: {count: 0}, medium: {count: 0}, long: {count: 0} };
+            let totalTextMessages = 0;
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    const len = msg.message.length;
+                    totalTextMessages++;
+                    if (len <= ranges.short) dist.short.count++;
+                    else if (len <= ranges.medium) dist.medium.count++;
+                    else dist.long.count++;
+                }
+            });
+            if (totalTextMessages > 0) {
+                dist.short.percentage = ((dist.short.count / totalTextMessages) * 100).toFixed(1);
+                dist.medium.percentage = ((dist.medium.count / totalTextMessages) * 100).toFixed(1);
+                dist.long.percentage = ((dist.long.count / totalTextMessages) * 100).toFixed(1);
+            } else {
+                 dist.short.percentage = dist.medium.percentage = dist.long.percentage = "0.0";
+            }
+            return dist;
+        }
+        
+        function getQuestionToStatementRatio(userMessages, questionCount) {
+            const textMessages = userMessages.filter(msg => !msg.isMedia && msg.message);
+            const totalTextMessages = textMessages.length;
+            if (totalTextMessages === 0) return 0;
+            const statementCount = totalTextMessages - questionCount;
+            return statementCount > 0 ? questionCount / statementCount : (questionCount > 0 ? Infinity : 0);
+        }
+
+        function getCountOfSpecificPhrases(userMessages, phrasesArray) {
+            let count = 0;
+            const regexes = phrasesArray.map(phrase => new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')); // Whole word, case-insensitive
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    if (regexes.some(regex => regex.test(msg.message))) {
+                        count++;
+                    }
+                }
+            });
+            return count;
+        }
+
+        function getNgrams(messages, n, topN, stopWords) {
+            const ngramCounts = {};
+            messages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    const words = msg.message.toLowerCase()
+                                       .replace(/[^\w\s\u0900-\u097F]|_/g, "") // Keep Indic characters
+                                       .replace(/\s+/g, " ").trim().split(/\s+/)
+                                       .filter(word => word.length > 0 && !stopWords.has(word) && !/^\d+$/.test(word));
+                    if (words.length >= n) {
+                        for (let i = 0; i <= words.length - n; i++) {
+                            const ngram = words.slice(i, i + n).join(' ');
+                            ngramCounts[ngram] = (ngramCounts[ngram] || 0) + 1;
+                        }
+                    }
+                }
+            });
+            const sortedNgrams = Object.entries(ngramCounts)
+                                  .sort(([,a],[,b]) => b-a)
+                                  .slice(0, topN);
+            return {
+                [`top${n === 2 ? 'Bigrams' : (n === 3 ? 'Trigrams' : n + 'grams')}Labels`]: sortedNgrams.map(entry => entry[0]),
+                [`top${n === 2 ? 'Bigrams' : (n === 3 ? 'Trigrams' : n + 'grams')}Data`]: sortedNgrams.map(entry => entry[1]),
+            };
+        }
+
+        function getVocabularyRichness(userMessages, stopWords) { // Type-Token Ratio
+            const allWords = [];
+            userMessages.forEach(msg => {
+                if (!msg.isMedia && msg.message) {
+                    const words = msg.message.toLowerCase()
+                                       .replace(/[^\w\s\u0900-\u097F]|_/g, "")
+                                       .replace(/\s+/g, " ").trim().split(/\s+/)
+                                       .filter(word => word.length > 0 && !stopWords.has(word) && !/^\d+$/.test(word));
+                    allWords.push(...words);
+                }
+            });
+            if (allWords.length === 0) return 0;
+            const uniqueWords = new Set(allWords);
+            return uniqueWords.size / allWords.length;
+        }
+
+
+        function getStopWords() {
+             const englishStopWords = [
+                'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'can', 'could', 'may', 'might', 'must',
+                'i', 'me', 'my', 'mine', 'you', 'your', 'yours', 'he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its', 'we', 'us', 'our', 'ours', 'they', 'them', 'their', 'theirs',
+                'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'if', 'then', 'else', 'when', 'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose',
+                'to', 'of', 'in', 'on', 'at', 'by', 'from', 'with', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'as', 'because', 'before', 'below', 'between', 'both', 'during', 'each', 'few', 'further', 'here', 'into', 'just', 'more', 'most', 'no', 'not', 'now', 'off', 'once', 'only', 'other', 'out', 'over', 'own', 'same', 'some', 'such', 'than', 'that', 'this', 'these', 'those', 'through', 'too', 'under', 'until', 'up', 'very', 'while',
+                'pm', 'am', 'p.m.', 'a.m.', 'ok', 'okay', 'lol', 'omg', 'btw', 'pls', 'plz', 'bro', 'sis'
+            ];
+            const hindiStopWords = [ // Hinglish + common Hindi stop words
+                'hai', 'ka', 'ko', 'ki', 'ke', 'main', 'mein', 'se', 'bhi', 'hi', 'kya', 'kar', 'kr', 'nahi', 'to', 'ho', 'hon', 'kuch', 'ye', 'yeh', 'vo', 'wo', 'h', 'nhi', 'nai', 'tha', 'thi', 'the', 'aur', 'ek', 'he', 'ab', 'hua', 'hue', 'hui', 'liye', 'le', 'diya', 'dia', 'gaya', 'gyi', 'gye', 'raha', 'rahi', 'rahe', 'rha', 'rhi', 'rhe', 'wala', 'wali', 'wale', 'hoga', 'hogi', 'honge', 'jab', 'tab', 'yaha', 'waha', 'aise', 'jaise', 'jaisa', 'koi', 'sab', 'karo', 'tera', 'mera', 'aap', 'hum', 'kaise', 'liye', 'bas', 'bhai', 'yaar', 'gaya', 'gayi', 'gaye', 'baat', 'din', 'log', 'phir', 'aaj', 'kal', 'par', 'hota', 'hoti', 'hote', 'karna', 'karni', 'karne', 'kuchh', 'sirf', 'baad', 'pe', 'toh', 'bhe', 'bhi', 'msg', 'message', 'deleted', 'omitted', 'media', 'http', 'https', 'com', 'www', 'org', 'in', 'net'
+            ];
+             const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+            return new Set([...englishStopWords, ...hindiStopWords, ...months]);
+        }
+
+        function wrapLabel(label, maxLength = 16) {
+            if (typeof label === 'string' && label.length > maxLength) {
+                const words = label.split(' ');
+                const lines = [];
+                let currentLine = '';
+                for (const word of words) {
+                    if ((currentLine + word).length > maxLength && currentLine.length > 0) {
+                        lines.push(currentLine.trim());
+                        currentLine = word + ' ';
+                    } else {
+                        currentLine += word + ' ';
+                    }
+                }
+                if (currentLine.trim()) lines.push(currentLine.trim());
+                return lines;
+            }
+            return label;
+        }
+
+        const tooltipTitleCallback = function(tooltipItems) {
+            const item = tooltipItems[0];
+            if (!item || !item.chart || !item.chart.data || !item.chart.data.labels || item.dataIndex === undefined || item.dataIndex >= item.chart.data.labels.length) {
+                return '';
+            }
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) {
+                return label.join(' ');
+            } else {
+                return label;
+            }
+        };
+
+        function renderUserChart(canvasId, type, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            userCharts[canvasId] = new Chart(ctx, {
+                type: type,
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: data.datasets.length > 1,
+                            position: 'top',
+                            labels: { color: '#4a5568', font: { family: 'Inter' }}
+                        },
+                        tooltip: {
+                            callbacks: { title: tooltipTitleCallback },
+                            bodyFont: { family: 'Inter' }, titleFont: { family: 'Inter' }
+                        }
+                    },
+                    scales: (type === 'bar' || type === 'line') ? {
+                        y: { beginAtZero: true, ticks: { color: '#4a5568', font: { family: 'Inter' }}, grid: { color: 'rgba(0,0,0,0.05)' }},
+                        x: { ticks: { color: '#4a5568', font: { family: 'Inter' }, callback: function(value) { return wrapLabel(this.getLabelForValue(value)); } }, grid: { display: false }}
+                    } : {}
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
