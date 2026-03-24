@@ -14,12 +14,7 @@ YOUTUBE_PATTERN = r"(https?://youtu(\.be|be\.com)\S+)"
 ANIMAL_NAMES = ["Panda", "Shark", "Zebra", "Lion", "Tiger", "Bear", "Eagle", "Wolf", "Fox", "Deer"]
 
 def get_emojis(text):
-    emoji_list = []
-    data = regex.findall(r"\X", text)
-    for word in data:
-        if any(char in emoji.EMOJI_DATA for char in word):
-            emoji_list.append(word)
-    return emoji_list
+    return [e['emoji'] for e in emoji.emoji_list(text)]
 
 def get_urls(text):
     url_list = regex.findall(URL_PATTERN, text)
