@@ -95,6 +95,9 @@ def plot_most_active_hours(df, username=None):
     else:
         df_filtered = df.copy()
 
+    if df_filtered.empty:
+        return ""
+
     message_counts_by_hour = df_filtered['hour'].value_counts().sort_index()
 
     plt.figure(figsize=(12, 6), constrained_layout=True)
