@@ -54,7 +54,6 @@ def apply_consistent_plot_styling(plt, title, xlabel, ylabel):
     plt.ylabel(ylabel, fontsize=12)
     plt.xticks(fontsize=10)
     plt.yticks(fontsize=10)
-    #plt.tight_layout()
 
 def plot_activity_heatmap(df, username=None):
     """Plot an activity heatmap and return base64 image."""
@@ -125,7 +124,6 @@ def generate_wordcloud(df, username=None):
             
     plt.axis("off")
     plt.title(f'Word Cloud {"for " + username if username else ""}', fontsize=14)
-    #plt.tight_layout()
     return plot_to_base64(plt)
 
 def analyze_language_complexity(df, username=None):
@@ -160,8 +158,6 @@ def analyze_language_complexity(df, username=None):
     sns.histplot(avg_sentence_lengths, bins=20, kde=True, color='salmon', ax=axs[1])
     apply_consistent_plot_styling(plt, f'Average Sentence Length {"for " + username if username else ""}', 'Average Sentence Length (words)', 'Frequency')
 
-    #plt.tight_layout()
-    
     # Convert the combined plot to base64
     combined_plot_base64 = plot_to_base64(plt)
     
@@ -383,7 +379,6 @@ def plot_user_relationship_graph(df):
     edge_labels = nx.get_edge_attributes(G, 'weight')
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8)
     plt.title("User Relationship Graph", fontsize=15)
-    #plt.tight_layout()
 
     return plot_to_base64(plt)
 
@@ -444,6 +439,5 @@ def plot_skills_radar_chart(df, username=None):
 
     # Add title
     plt.title(f'Skills Radar Chart {"for " + username if username else ""}', size=15, color='black', y=1.1)
-    #plt.tight_layout()
 
     return plot_to_base64(plt)
