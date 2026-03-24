@@ -1,6 +1,7 @@
 # analyzer.py (inside whatsapp_analyzer)
 import os
 import re
+import html
 from .parser import Parser
 from .utils import (
     df_basic_cleanup,
@@ -88,14 +89,33 @@ class WhatsAppAnalyzer:
                 # Generate HTML for top 5 emojis and add to user_stats
                 # user_stats["Top 5 Emojis"] is a list of (emoji, count) tuples
                 top_5_emojis_html_str = " ".join(
-                    [f"{emoji_val} ({count})" for emoji_val, count in user_stats["Top 5 Emojis"]]
+                    [f"{html.escape(emoji_val)} ({count})" for emoji_val, count in user_stats["Top 5 Emojis"]]
                 )
                 user_stats['top_5_emojis_html'] = top_5_emojis_html_str
                 
-                # The n-gram and abuse count formatting is now done in basic_stats.
+                # The n-gram, abuse count and behavioral insights formatting is now done in basic_stats
+                # with internal html escaping applied.
+                # We escape the 'name' and any plain string values (like 'Most Active Period') here.
+                escaped_name = html.escape(name)
+
+                # Keys that contain pre-formatted HTML from basic_stats.
+                html_keys = {
+                    'top_5_emojis_html', 'Common Unigrams', 'Common Bigrams',
+                    'Common Trigrams', 'Hindi Abuse Counts', 'Behavioral Insights Text',
+                    'Activity Heatmap', 'Sentiment Distribution', 'Word Cloud',
+                    'Language Complexity', 'Response Time Distribution', 'Sentiment Over Time',
+                    'Emoji Usage', 'Sentiment Bubble', 'Vocabulary Diversity',
+                    'Language Complexity POS', 'User Relationship Graph', 'Skills Radar Chart',
+                    'Emotion Over Time', 'Most Active Hours'
+                }
+
+                for key, value in user_stats.items():
+                    if isinstance(value, str) and key not in html_keys:
+                        user_stats[key] = html.escape(value)
+
                 # html_template will directly use these pre-formatted HTML strings.
                 # We can now use dictionary unpacking for formatting.
-                final_html = html_template.format(name=name, **user_stats)
+                final_html = html_template.format(name=escaped_name, **user_stats)
 
                 output_path = os.path.join(
                     self.out_dir, f"{safe_name}_report.html"
