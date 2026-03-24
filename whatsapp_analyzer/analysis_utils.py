@@ -260,9 +260,14 @@ def analyze_hindi_abuse(df, username=None):
     if 'clean_message' not in df_filtered_abuse.columns:
         df_filtered_abuse['clean_message'] = df_filtered_abuse['message'].apply(lambda x: clean_message(str(x)))
 
+    # Joining all messages into a single lowercased string once to optimize counting
+    corpus = "\n".join(df_filtered_abuse['clean_message'].astype(str)).lower()
+
     abuse_counts = {}
     for word in hindi_abusive_words:
-        count = df_filtered_abuse['clean_message'].str.lower().str.count(word).sum()
+        # Pre-lowercasing the target word is slightly more efficient
+        word_lower = word.lower()
+        count = corpus.count(word_lower)
         if count > 0: 
             abuse_counts[word] = count
 
