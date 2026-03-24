@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 import tempfile
 
-from whatsapp_analyzer.analysis_utils import analyze_message_timing, basic_stats
+from whatsapp_analyzer.analysis_utils import analyze_message_timing, basic_stats, analyze_behavioral_traits
 from whatsapp_analyzer.utils import df_basic_cleanup
 from whatsapp_analyzer.parser import Parser
 # For basic_stats, TextBlob is an indirect dependency for sentiment.
@@ -150,6 +150,78 @@ class TestAnalysisUtils(unittest.TestCase):
         self.assertTrue("<li>test: 2</li>" in stats_dict_user1['Common Unigrams'] or "<li>test: 2</li>" in stats_dict_user1['Common Unigrams'])
         self.assertIsInstance(stats_dict_user1['Hindi Abuse Counts'], str)
         self.assertEqual(stats_dict_user1['Hindi Abuse Counts'], "<ul></ul>") # Assuming no abuse words
+
+    # --- Tests for analyze_behavioral_traits ---
+
+    def test_analyze_behavioral_traits_single_user(self):
+        chat_lines = [
+            "10/10/22, 10:00 AM - User1: Can you help me solve this problem? I am confused!",
+            "10/10/22, 10:05 AM - User2: Here is the code for the algorithm.",
+            "10/10/22, 10:10 AM - User1: Great! I will talk to the team and collaborate on it. Thanks!"
+        ]
+        df = self._create_and_parse_chat_file(chat_lines)
+
+        # Test analysis for User1
+        traits = analyze_behavioral_traits(df, username='User1')
+
+        # Verify general trait keys are present
+        self.assertIn('num_questions', traits)
+        self.assertIn('num_exclamations', traits)
+        self.assertIn('first_person_pronouns', traits)
+        self.assertIn('skills', traits)
+        self.assertIn('avg_sentence_length', traits)
+        self.assertIn('lexical_diversity', traits)
+
+        # Verify specific counts based on User1's messages
+        self.assertEqual(traits['num_questions'], 1)  # "Can you help me solve this problem?"
+        self.assertEqual(traits['num_exclamations'], 2) # "I am confused!", "Thanks!"
+
+        # Pronouns: "me", "I" (twice). Note that regex matching might be case sensitive depending on preprocessing
+        # Let's conservatively check it's > 0
+        self.assertGreater(traits['first_person_pronouns'], 0)
+
+        # Check skills for User1
+        # 'solve' -> problem_solving
+        # 'talk' -> communication
+        # 'collaborate' -> teamwork
+        self.assertGreaterEqual(traits['skills']['problem_solving'], 1)
+        self.assertGreaterEqual(traits['skills']['communication'], 1)
+        self.assertGreaterEqual(traits['skills']['teamwork'], 1)
+        # User1 shouldn't have technical skills flagged in these messages
+        self.assertEqual(traits['skills']['technical'], 0)
+
+    def test_analyze_behavioral_traits_all_users(self):
+        chat_lines = [
+            "10/10/22, 10:00 AM - User1: I need to solve this.",
+            "10/10/22, 10:05 AM - User2: The code and algorithm are ready."
+        ]
+        df = self._create_and_parse_chat_file(chat_lines)
+
+        # Test analysis for all users (username=None)
+        traits = analyze_behavioral_traits(df)
+
+        # problem_solving from User1, technical from User2
+        self.assertGreaterEqual(traits['skills']['problem_solving'], 1)
+        self.assertGreaterEqual(traits['skills']['technical'], 1)
+
+    def test_analyze_behavioral_traits_empty_or_missing_user(self):
+        chat_lines = [
+            "10/10/22, 10:00 AM - User1: Hello world",
+            "10/10/22, 10:05 AM - User2: Hi"
+        ]
+        df = self._create_and_parse_chat_file(chat_lines)
+
+        # Test for a user that doesn't exist
+        traits = analyze_behavioral_traits(df, username='User3')
+
+        self.assertEqual(traits['num_questions'], 0)
+        self.assertEqual(traits['num_exclamations'], 0)
+        self.assertEqual(traits['first_person_pronouns'], 0)
+        # Check that avg_sentence_length handles empty Series gracefully, often results in NaN
+        if pd.isna(traits['avg_sentence_length']):
+            self.assertTrue(pd.isna(traits['avg_sentence_length']))
+        else:
+            self.assertEqual(traits['avg_sentence_length'], 0)
 
     def test_basic_stats_runs_without_error(self):
         """ Test that basic_stats completes without error for a typical case."""
