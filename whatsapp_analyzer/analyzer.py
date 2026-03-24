@@ -1,5 +1,6 @@
 # analyzer.py (inside whatsapp_analyzer)
 import os
+import re
 from .parser import Parser
 from .utils import (
     df_basic_cleanup,
@@ -78,6 +79,9 @@ class WhatsAppAnalyzer:
 
         for name in users:
             if name != "System":
+                # Sanitize the name to prevent path traversal and ensure a valid filename
+                safe_name = re.sub(r'[^a-zA-Z0-9_\- ]', '_', name)
+
                 # Call basic_stats from analysis_utils
                 user_stats = basic_stats(self.df, name) 
                 
@@ -94,7 +98,7 @@ class WhatsAppAnalyzer:
                 final_html = html_template.format(name=name, **user_stats)
 
                 output_path = os.path.join(
-                    self.out_dir, f"{name}_report.html"
+                    self.out_dir, f"{safe_name}_report.html"
                 )
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
