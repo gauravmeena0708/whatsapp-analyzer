@@ -14,12 +14,7 @@ YOUTUBE_PATTERN = r"(https?://youtu(\.be|be\.com)\S+)"
 ANIMAL_NAMES = ["Panda", "Shark", "Zebra", "Lion", "Tiger", "Bear", "Eagle", "Wolf", "Fox", "Deer"]
 
 def get_emojis(text):
-    emoji_list = []
-    data = regex.findall(r"\X", text)
-    for word in data:
-        if any(char in emoji.EMOJI_DATA for char in word):
-            emoji_list.append(word)
-    return emoji_list
+    return [e['emoji'] for e in emoji.emoji_list(text)]
 
 def get_urls(text):
     url_list = regex.findall(URL_PATTERN, text)
@@ -141,111 +136,99 @@ def df_basic_cleanup(df):
     
     return df
 
-def anonymize(input_chat_path: str, output_chat_path: str):
-    """Anonymizes usernames in a WhatsApp chat file and saves it to a new file."""
+def _parse_chat_line(line: str, user_message_pattern: re.Pattern, system_event_pattern: re.Pattern) -> dict | None:
+    """Parses a single chat line and returns a dictionary with extracted info, or None if no match."""
+    user_match = user_message_pattern.match(line)
+    if user_match:
+        date_str, time_str, author_str, message_str = user_match.groups()
+        return {
+            "date": date_str.strip(),
+            "time": time_str.strip(),
+            "author": author_str.strip(),
+            "message": message_str.strip()
+        }
+
+    system_match = system_event_pattern.match(line)
+    if system_match:
+        date_str, time_str, message_str = system_match.groups()
+        return {
+            "date": date_str.strip(),
+            "time": time_str.strip(),
+            "author": "System",
+            "message": message_str.strip()
+        }
+
+    return None
+
+def _process_chat_file(input_chat_path: str, user_message_pattern: re.Pattern, system_event_pattern: re.Pattern) -> tuple[list, dict]:
+    """Reads the input chat file, parses lines, and generates the username to anonymous name mapping."""
+    parsed_lines_data = []
     username_to_anonymous_map = {}
     user_id_counter = 0
     animal_cycle = itertools.cycle(ANIMAL_NAMES)
-    parsed_lines_data = []
 
-    # Define regex patterns for parsing chat lines
-    # Pattern for user messages: captures date, time, author, and message
-    # e.g., "20/03/2023, 10:00 AM - Alice: Hello Bob"
+    with open(input_chat_path, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped_line = line.strip()
+            if not stripped_line:
+                parsed_lines_data.append(stripped_line)
+                continue
+
+            parsed_info = _parse_chat_line(stripped_line, user_message_pattern, system_event_pattern)
+
+            if parsed_info and parsed_info.get('author'):
+                author = parsed_info['author']
+                if author.lower() != "system" and author not in username_to_anonymous_map:
+                    user_id_counter += 1
+                    anonymous_name = f"user_{user_id_counter}_{next(animal_cycle)}"
+                    username_to_anonymous_map[author] = anonymous_name
+                parsed_lines_data.append(parsed_info)
+            else:
+                parsed_lines_data.append(stripped_line)
+
+    return parsed_lines_data, username_to_anonymous_map
+
+def _write_anonymized_chat(output_chat_path: str, parsed_lines_data: list, username_to_anonymous_map: dict):
+    """Writes the anonymized chat data to the output file."""
+    with open(output_chat_path, "w", encoding="utf-8") as f:
+        for item in parsed_lines_data:
+            if isinstance(item, dict):
+                author = item['author']
+                message = item.get('message', '')
+
+                if author.lower() == "system":
+                    display_author = author
+                else:
+                    display_author = username_to_anonymous_map.get(author, author)
+
+                reconstructed_line = f"{item['date']}, {item['time']} - {display_author}: {message}"
+                f.write(reconstructed_line + '\n')
+            else:
+                f.write(item + '\n')
+    print(f"Anonymized chat saved to {output_chat_path}")
+
+def anonymize(input_chat_path: str, output_chat_path: str):
+    """Anonymizes usernames in a WhatsApp chat file and saves it to a new file."""
     user_message_pattern = re.compile(
         r"(\d{1,2}/\d{1,2}/\d{2,4}),\s*(\d{1,2}:\d{2}(?:\s*(?:AM|PM|am|pm))?)\s*-\s*([^:]+?):\s*(.*)"
     )
-    # Pattern for system messages or events that don't have a specific author mentioned with a colon
-    # e.g., "20/03/2023, 10:05 AM - You deleted this message" or "20/03/2023, 10:00 AM - System: Alice added Bob" (where "System: " is part of the message)
-    # For anonymization purposes, we mostly care about the structure to extract date/time and differentiate from user messages.
-    # The author for these will effectively be "System" or the line is kept as is if no author is truly identifiable.
     system_event_pattern = re.compile(
         r"(\d{1,2}/\d{1,2}/\d{2,4}),\s*(\d{1,2}:\d{2}(?:\s*(?:AM|PM|am|pm))?)\s*-\s*(.*)"
     )
 
-    username_to_anonymous_map = {}
-    user_id_counter = 0
-    animal_cycle = itertools.cycle(ANIMAL_NAMES)
-    parsed_lines_data = []
-
     try:
-        with open(input_chat_path, "r", encoding="utf-8") as f:
-            for line in f:
-                stripped_line = line.strip()
-                if not stripped_line:  # Skip empty lines
-                    parsed_lines_data.append(stripped_line)
-                    continue
-
-                parsed_info = None
-                user_match = user_message_pattern.match(stripped_line)
-                if user_match:
-                    date_str, time_str, author_str, message_str = user_match.groups()
-                    parsed_info = {
-                        "date": date_str.strip(),
-                        "time": time_str.strip(),
-                        "author": author_str.strip(),
-                        "message": message_str.strip()
-                    }
-                else:
-                    system_match = system_event_pattern.match(stripped_line)
-                    if system_match:
-                        date_str, time_str, message_str = system_match.groups()
-                        # If the message content starts with "System: ", treat "System" as author
-                        # This is a heuristic; actual system messages might vary.
-                        # The main goal here is to differentiate from user messages for anonymization.
-                        # The logic below (`author.lower() != "system"`) handles "System" authors correctly.
-                        # For lines like "You deleted this message", the author is effectively System.
-                        # Let's assume author is "System" for all system_event_pattern matches for now.
-                        # The key is that these names won't be added to username_to_anonymous_map unless they are actual users.
-                        parsed_info = {
-                            "date": date_str.strip(),
-                            "time": time_str.strip(),
-                            "author": "System", # Default for system events
-                            "message": message_str.strip()
-                        }
-                        # A more robust way to check if it's a system message for anonymization purposes:
-                        # if the message_str itself contains a colon, it might be a user message that was
-                        # misparsed by user_message_pattern (e.g. unusual characters in username).
-                        # However, the provided regex for user_message_pattern is greedy for author.
-                        # For now, this simplified approach for system messages.
-
-                if parsed_info and parsed_info.get('author'):
-                    author = parsed_info['author']
-                    # Check if author is 'System' (case-insensitive) or already mapped
-                    if author.lower() != "system" and author not in username_to_anonymous_map:
-                        user_id_counter += 1
-                        anonymous_name = f"user_{user_id_counter}_{next(animal_cycle)}"
-                        username_to_anonymous_map[author] = anonymous_name
-                    parsed_lines_data.append(parsed_info)
-                else:
-                    # If line is not parsed or has no author, store the original line
-                    parsed_lines_data.append(stripped_line)
-    
+        parsed_lines_data, username_to_anonymous_map = _process_chat_file(
+            input_chat_path, user_message_pattern, system_event_pattern
+        )
     except FileNotFoundError:
         print(f"Error: Input file '{input_chat_path}' not found.")
         return
     except Exception as e:
-        print(f"An error occurred: {e}") # General exception handling
+        print(f"An error occurred: {e}")
         return
 
     try:
-        with open(output_chat_path, "w", encoding="utf-8") as f:
-            for item in parsed_lines_data:
-                if isinstance(item, dict):
-                    author = item['author']
-                    # Ensure message is not None, default to empty string if it is
-                    message = item.get('message', '') 
-
-                    if author.lower() == "system":
-                        display_author = author 
-                    else:
-                        display_author = username_to_anonymous_map.get(author, author)
-                    
-                    reconstructed_line = f"{item['date']}, {item['time']} - {display_author}: {message}"
-                    f.write(reconstructed_line + '\n')
-                else:
-                    # item is an original string (unparsed line or empty line)
-                    f.write(item + '\n')
-        print(f"Anonymized chat saved to {output_chat_path}")
+        _write_anonymized_chat(output_chat_path, parsed_lines_data, username_to_anonymous_map)
     except IOError as e:
         print(f"Error writing to output file '{output_chat_path}': {e}")
     except Exception as e:

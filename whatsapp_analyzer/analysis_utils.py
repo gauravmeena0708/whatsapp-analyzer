@@ -1,5 +1,6 @@
 # whatsapp_analyzer/analysis_utils.py
 
+import html
 import nltk
 from textblob import TextBlob
 from sklearn.feature_extraction.text import CountVectorizer
@@ -357,6 +358,19 @@ def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_inst
 
     # Analyze for Hindi abuse and format as HTML
     abuse_counts_html = _format_abuse_counts_html(analyze_hindi_abuse(df_filtered, username))
+    # Analyze for Hindi गाली (using the standalone function)
+    # Pass df_filtered which already has 'clean_message'
+    abuse_counts = analyze_hindi_abuse(df_filtered, username)
+    
+    abuse_counts_html = "<ul>"
+    for word, count in abuse_counts.items():
+        abuse_counts_html += f"<li>{html.escape(str(word))}: {count}</li>"
+    abuse_counts_html += "</ul>"
+
+    # Format n-grams as HTML list items
+    common_unigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_unigrams])
+    common_bigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_bigrams])
+    common_trigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_trigrams])
 
     stats = {
         'Total Messages': len(df_filtered),
