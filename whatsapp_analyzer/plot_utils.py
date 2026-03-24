@@ -236,6 +236,9 @@ def plot_emoji_usage(df, username=None):
     else:
         df_filtered = df.copy()
 
+    if df_filtered.empty:
+        return ""
+
     df_filtered['emojis'] = df_filtered['message'].apply(extract_emojis)
     all_emojis = [emoji for sublist in df_filtered['emojis'] for emoji in sublist]
     top_emojis = Counter(all_emojis).most_common(5)
