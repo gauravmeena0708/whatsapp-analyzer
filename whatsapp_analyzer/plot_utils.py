@@ -29,7 +29,7 @@ def clean_message(msg):
     # Remove URLs
     msg = re.sub(r'http[s]?://\S+', '', msg)
     # Remove "media omitted" phrases, case-insensitive
-    msg = re.sub(r'\b(media omitted|<media omitted>)\b', '', msg, flags=re.IGNORECASE)
+    msg = re.sub(r'<media omitted>|\bmedia omitted\b', '', msg, flags=re.IGNORECASE)
     # Strip any extra spaces
     msg = msg.strip()
     return msg
