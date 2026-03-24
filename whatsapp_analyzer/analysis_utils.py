@@ -1,5 +1,6 @@
 # whatsapp_analyzer/analysis_utils.py
 
+import html
 import nltk
 from textblob import TextBlob
 from sklearn.feature_extraction.text import CountVectorizer
@@ -339,13 +340,13 @@ def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_inst
     
     abuse_counts_html = "<ul>"
     for word, count in abuse_counts.items():
-        abuse_counts_html += f"<li>{word}: {count}</li>"
+        abuse_counts_html += f"<li>{html.escape(str(word))}: {count}</li>"
     abuse_counts_html += "</ul>"
 
     # Format n-grams as HTML list items
-    common_unigrams_html = "".join([f"<li>{word[0]}: {word[1]}</li>" for word in common_unigrams])
-    common_bigrams_html = "".join([f"<li>{word[0]}: {word[1]}</li>" for word in common_bigrams])
-    common_trigrams_html = "".join([f"<li>{word[0]}: {word[1]}</li>" for word in common_trigrams])
+    common_unigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_unigrams])
+    common_bigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_bigrams])
+    common_trigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_trigrams])
 
     stats = {
         'Total Messages': len(df_filtered),
