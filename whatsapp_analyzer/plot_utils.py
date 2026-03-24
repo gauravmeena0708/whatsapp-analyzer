@@ -196,6 +196,9 @@ def analyze_emotion_over_time(df, username=None):
         df_filtered = df[df['name'] == username].copy()
     else:
         df_filtered = df.copy()
+
+    if df_filtered.empty:
+        return ""
     
     df_filtered['date'] = pd.to_datetime(df_filtered['date'])
     df_filtered.set_index('date', inplace=True)
