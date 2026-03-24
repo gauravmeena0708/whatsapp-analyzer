@@ -196,7 +196,7 @@ class TestAnonymize(unittest.TestCase):
 
     def test_system_messages(self):
         input_lines = [
-            "20/03/2023, 10:00 - System: Alice added Bob",
+            "20/03/2023, 10:00 - Alice added Bob",
             "20/03/2023, 10:01 - Carol: Hello everyone",
             "This is a line that won't be parsed by _parse_line."
         ]
@@ -207,7 +207,7 @@ class TestAnonymize(unittest.TestCase):
         animal1 = ANIMAL_NAMES[0] # Carol will be user_1
 
         expected_lines = [
-            "20/03/2023, 10:00 - System: Alice added Bob",
+            "20/03/2023, 10:00 - Alice added Bob",
             f"20/03/2023, 10:01 - user_1_{animal1}: Hello everyone",
             "This is a line that won't be parsed by _parse_line."
         ]

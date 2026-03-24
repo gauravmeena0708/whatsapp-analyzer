@@ -123,6 +123,24 @@ class TestParser(unittest.TestCase):
         self.assertEqual(df.iloc[2]['name'], "User2")
         self.assertEqual(df.iloc[2]['message'], "Hello all!")
 
+    def test_parse_chat_data_24_hour_format(self):
+        chat_content = [
+            "20/03/2023, 10:00 - Alice: Hello there!\n",
+            "20/03/2023, 10:01 - Bob: Hi Alice.\n",
+            "20/03/2023, 10:02 - Alice changed the group description\n"
+        ]
+        with open(self.temp_file_path, "w", encoding="utf-8") as f:
+            f.writelines(chat_content)
+
+        parser_instance = Parser(self.temp_file_path)
+        df = parser_instance.parse_chat_data()
+
+        self.assertEqual(len(df), 3)
+        self.assertEqual(df.iloc[0]["name"], "Alice")
+        self.assertEqual(df.iloc[0]["message"], "Hello there!")
+        self.assertEqual(df.iloc[2]["name"], "System")
+        self.assertEqual(df.iloc[2]["message"], "Alice changed the group description")
+
     def test_parse_chat_data_invalid_lines(self):
         chat_content = [
             "This is a completely invalid line.\n", 

@@ -2,6 +2,12 @@ import re
 from dateutil import parser
 import pandas as pd
 
+
+TIMESTAMP_PATTERN = (
+    r"\d{1,2}/\d{1,2}/\d{2,4}, "
+    r"\d{1,2}:\d{2}(?::\d{2})?(?:\s?(?:AM|PM|am|pm))?"
+)
+
 class Parser:
     def __init__(self, file_path):
         """
@@ -26,8 +32,8 @@ class Parser:
         processed_lines = []
         buffer = ""
 
-        # Updated date_pattern
-        date_pattern = re.compile(r"^\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)")
+        # Accept 12-hour and 24-hour WhatsApp exports, with optional seconds.
+        date_pattern = re.compile(rf"^{TIMESTAMP_PATTERN}")
 
         for line in lines:
             if date_pattern.match(line):
@@ -54,17 +60,15 @@ class Parser:
         for line in chat_lines:
             try:
                 # Updated user message regex
-                match = re.match(
-                    r"(\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)) - (.*?): (.*)", line
-                )
+                match = re.match(rf"({TIMESTAMP_PATTERN}) - (.*?): (.*)", line)
                 if match:
                     timestamp, sender, message = match.groups()
                     date_obj = parser.parse(timestamp)
                     chat_data.append({"t": date_obj, "name": sender, "message": message})
                 else:
-                    # Updated system message regex
+                    # System message / event line
                     match2 = re.match(
-                        r"(\d{2}/\d{2}/\d{2,4}, \d{1,2}:\d{2}\s(?:AM|PM|am|pm)) - (.*)", line
+                        rf"({TIMESTAMP_PATTERN}) - (.*)", line
                     )
                     if match2:
                         timestamp, event = match2.groups()

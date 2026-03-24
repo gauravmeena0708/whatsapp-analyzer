@@ -1,25 +1,45 @@
 # whatsapp_analyzer/plot_utils.py
 import base64
-import emoji
 import re
 from io import BytesIO
 from collections import Counter
 from functools import lru_cache
 
+try:
+    import emoji
+    EMOJI_DATA = emoji.EMOJI_DATA
+except ModuleNotFoundError:
+    EMOJI_DATA = {}
+
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import networkx as nx
-import nltk
 import pandas as pd
 import seaborn as sns
 from sklearn.feature_extraction.text import CountVectorizer
-from textblob import TextBlob
-from wordcloud import WordCloud
+try:
+    import nltk
+except ModuleNotFoundError:
+    nltk = None
 
-from .constants import custom_hinglish_stopwords, skill_keywords # Import from constants within the package
+try:
+    from textblob import TextBlob
+except ModuleNotFoundError:
+    TextBlob = None
 
-# Combine NLTK stopwords with custom Hinglish stopwords
-stop_words = set(nltk.corpus.stopwords.words('english')).union(custom_hinglish_stopwords)
+try:
+    from wordcloud import WordCloud
+except ModuleNotFoundError:
+    WordCloud = None
+
+from .constants import stop_words, skill_keywords  # stop_words already built in constants.py
+
+
+def _filter_by_user(df, username):
+    """Return a copy of df filtered to username, or a copy of the full df if username is None."""
+    if username:
+        return df[df['name'] == username].copy()
+    return df.copy()
 
 @lru_cache(maxsize=None)  # Cache all unique calls
 def clean_message(msg):
@@ -36,7 +56,38 @@ def clean_message(msg):
 
 def extract_emojis(text):
     """Extract emojis from text."""
-    return [c for c in text if c in emoji.EMOJI_DATA]
+    return [c for c in text if c in EMOJI_DATA or ord(c) > 10000]
+
+
+def _sentence_count(text):
+    text = str(text).strip()
+    if not text:
+        return 0
+    if nltk is not None:
+        try:
+            return len(nltk.sent_tokenize(text))
+        except LookupError:
+            pass
+    parts = [part for part in re.split(r"[.!?]+", text) if part.strip()]
+    return max(len(parts), 1)
+
+
+def _polarity_subjectivity(text):
+    text = str(text)
+    if TextBlob is not None:
+        sentiment = TextBlob(text).sentiment
+        return float(sentiment.polarity), float(sentiment.subjectivity)
+
+    positive_words = {"good", "great", "happy", "love", "excellent", "awesome", "nice", "best"}
+    negative_words = {"bad", "sad", "hate", "angry", "terrible", "awful", "worst", "no"}
+    words = re.findall(r"\b\w+\b", text.lower())
+    if not words:
+        return 0.0, 0.0
+    pos = sum(word in positive_words for word in words)
+    neg = sum(word in negative_words for word in words)
+    polarity = (pos - neg) / max(len(words), 1)
+    subjectivity = min((pos + neg) / max(len(words), 1) * 2, 1.0)
+    return polarity, subjectivity
 
 def plot_to_base64(plt):
     """Convert a Matplotlib plot to a base64 encoded image."""
@@ -46,6 +97,13 @@ def plot_to_base64(plt):
     img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
     plt.close()
     return img_base64
+
+
+def _render_empty_plot(message, title, xlabel="", ylabel=""):
+    plt.figure(figsize=(8, 5))
+    plt.text(0.5, 0.5, message, ha="center", va="center", fontsize=12)
+    apply_consistent_plot_styling(plt, title, xlabel, ylabel)
+    return plot_to_base64(plt)
 
 def apply_consistent_plot_styling(plt, title, xlabel, ylabel):
     """Applies consistent styling to Matplotlib plots."""
@@ -57,10 +115,7 @@ def apply_consistent_plot_styling(plt, title, xlabel, ylabel):
 
 def plot_activity_heatmap(df, username=None):
     """Plot an activity heatmap and return base64 image."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     df_filtered['date'] = pd.to_datetime(df_filtered['date'])
     df_filtered['weekday'] = df_filtered['date'].dt.day_name()
@@ -76,12 +131,10 @@ def plot_activity_heatmap(df, username=None):
 
 def plot_sentiment_distribution(df, username=None):
     """Plot sentiment distribution and return base64 image."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
-    df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
+    if 'sentiment' not in df_filtered.columns:
+        df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[0])
 
     plt.figure(figsize=(8, 5))
     sns.histplot(df_filtered['sentiment'], bins=20, kde=True, color='skyblue')
@@ -90,10 +143,7 @@ def plot_sentiment_distribution(df, username=None):
 
 def plot_most_active_hours(df, username=None):
     """Plot a bar chart of the most active hours and return base64 image."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     message_counts_by_hour = df_filtered['hour'].value_counts().sort_index()
 
@@ -104,10 +154,7 @@ def plot_most_active_hours(df, username=None):
 
 def generate_wordcloud(df, username=None):
     """Generate word cloud and return base64 image."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     text = " ".join(msg for msg in df_filtered['clean_message'] if isinstance(msg, str) and len(msg.strip())>0)
@@ -117,6 +164,8 @@ def generate_wordcloud(df, username=None):
         plt.text(0.5, 0.5, "No words to display in word cloud.", ha='center', va='center', fontsize=12)
     else:
         try:
+            if WordCloud is None:
+                raise ValueError("wordcloud package is not installed")
             wordcloud = WordCloud(stopwords=stop_words, background_color="white").generate(text)
             plt.imshow(wordcloud, interpolation='bilinear')
         except ValueError as e: # Catch any other potential errors from WordCloud
@@ -128,24 +177,19 @@ def generate_wordcloud(df, username=None):
 
 def analyze_language_complexity(df, username=None):
     """Analyze language complexity and return base64 images."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     
     # filter out emojis
     df_filtered['word_length'] = df_filtered['clean_message'].apply(
-        lambda x: [len(word) for word in str(x).split() if word.lower() not in stop_words and len(word) > 1 and not all(c in emoji.EMOJI_DATA for c in word)]
+        lambda x: [len(word) for word in str(x).split() if word.lower() not in stop_words and len(word) > 1 and not all(c in EMOJI_DATA or ord(c) > 10000 for c in word)]
     )
     
     avg_word_lengths = df_filtered['word_length'].apply(lambda x: sum(x) / len(x) if len(x) > 0 else 0)
 
     # Handle cases with only emojis or empty messages
-    df_filtered['sentence_length'] = df_filtered['clean_message'].apply(
-        lambda x: len(nltk.sent_tokenize(str(x))) if str(x).strip() else 0
-    )
+    df_filtered['sentence_length'] = df_filtered['clean_message'].apply(_sentence_count)
     avg_sentence_lengths = df_filtered['sentence_length'].apply(
         lambda x: len(str(x).split()) / x if x > 0 and len(str(x).split()) > 0 else 0
     )
@@ -153,10 +197,14 @@ def analyze_language_complexity(df, username=None):
     fig, axs = plt.subplots(1, 2, figsize=(12, 5))
 
     sns.histplot(avg_word_lengths, bins=20, kde=True, color='skyblue', ax=axs[0])
-    apply_consistent_plot_styling(plt, f'Average Word Length {"for " + username if username else ""}', 'Average Word Length', 'Frequency')
+    axs[0].set_title(f'Average Word Length {"for " + username if username else ""}', fontsize=14)
+    axs[0].set_xlabel('Average Word Length', fontsize=12)
+    axs[0].set_ylabel('Frequency', fontsize=12)
 
     sns.histplot(avg_sentence_lengths, bins=20, kde=True, color='salmon', ax=axs[1])
-    apply_consistent_plot_styling(plt, f'Average Sentence Length {"for " + username if username else ""}', 'Average Sentence Length (words)', 'Frequency')
+    axs[1].set_title(f'Average Sentence Length {"for " + username if username else ""}', fontsize=14)
+    axs[1].set_xlabel('Average Sentence Length (words)', fontsize=12)
+    axs[1].set_ylabel('Frequency', fontsize=12)
 
     # Convert the combined plot to base64
     combined_plot_base64 = plot_to_base64(plt)
@@ -165,6 +213,14 @@ def analyze_language_complexity(df, username=None):
 
 def plot_response_time_distribution(response_times, username=None):
     """Plot the distribution of response times."""
+    if response_times is None or len(response_times) == 0:
+        return _render_empty_plot(
+            "Not enough messages to compute response times.",
+            f'Response Time Distribution {"for " + username if username else ""}',
+            "Response Time (minutes)",
+            "Frequency",
+        )
+
     plt.figure(figsize=(8, 5))
     sns.histplot(response_times, bins=20, kde=True, color='skyblue')
     apply_consistent_plot_styling(plt, f'Response Time Distribution {"for " + username if username else ""}', 'Response Time (minutes)', 'Frequency')
@@ -172,12 +228,17 @@ def plot_response_time_distribution(response_times, username=None):
 
 def analyze_sentiment_over_time(df, username=None):
     """Analyze sentiment over time and return base64 image of the plot."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
+    if df_filtered.empty:
+        return _render_empty_plot(
+            "No messages available for sentiment trend analysis.",
+            f'Sentiment Over Time {"for " + username if username else ""}',
+            "Date",
+            "Average Sentiment",
+        )
 
-    df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
+    if 'sentiment' not in df_filtered.columns:
+        df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[0])
     df_filtered['date'] = pd.to_datetime(df_filtered['date'])
     df_filtered.set_index('date', inplace=True)
 
@@ -192,15 +253,23 @@ def analyze_sentiment_over_time(df, username=None):
 
 def analyze_emotion_over_time(df, username=None):
     """Analyze emotion over time using TextBlob and return base64 image of the plot."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
-    
+    df_filtered = _filter_by_user(df, username)
+    if df_filtered.empty:
+        return _render_empty_plot(
+            "No messages available for emotion trend analysis.",
+            f'Emotion Trends Over Time {"for " + username if username else ""}',
+            "Date",
+            "Emotion Score",
+        )
+
     df_filtered['date'] = pd.to_datetime(df_filtered['date'])
     df_filtered.set_index('date', inplace=True)
 
-    # Define a function to categorize sentiment into emotions
+    # Reuse pre-computed sentiment column if available
+    if 'sentiment' not in df_filtered.columns:
+        df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[0])
+
+    # Map polarity to broad emotion buckets
     def categorize_emotion(score):
         if score > 0.5:
             return "joy"
@@ -212,9 +281,7 @@ def analyze_emotion_over_time(df, username=None):
             return "anger"
         else:
             return "neutral"
-    
-    # Apply sentiment analysis and emotion categorization
-    df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
+
     df_filtered['emotion'] = df_filtered['sentiment'].apply(categorize_emotion)
     
     # Resample to daily frequency and count the occurrences of each emotion
@@ -231,10 +298,7 @@ def analyze_emotion_over_time(df, username=None):
 
 def plot_emoji_usage(df, username=None):
     """Plot a bar chart of the top 5 emojis used and return base64 image."""
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     df_filtered['emojis'] = df_filtered['message'].apply(extract_emojis)
     all_emojis = [emoji for sublist in df_filtered['emojis'] for emoji in sublist]
@@ -258,14 +322,16 @@ def plot_sentiment_bubble(df, username=None):
     y-axis: Subjectivity (Objective/Subjective)
     Bubble size: Number of messages
     """
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
-    # Calculate sentiment polarity and subjectivity
-    df_filtered['polarity'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-    df_filtered['subjectivity'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.subjectivity)
+    # Reuse pre-computed sentiment columns when available
+    if 'sentiment' in df_filtered.columns:
+        df_filtered['polarity'] = df_filtered['sentiment']
+    else:
+        df_filtered['polarity'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[0])
+
+    if 'subjectivity' not in df_filtered.columns:
+        df_filtered['subjectivity'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[1])
 
     # Count the number of messages for each sentiment
     sentiment_counts = df_filtered.groupby(['polarity', 'subjectivity']).size().reset_index(name='counts')
@@ -277,43 +343,39 @@ def plot_sentiment_bubble(df, username=None):
 
 def plot_vocabulary_diversity(df, username=None):
     """
-    Plot a scatter plot of vocabulary diversity over time and return base64 image.
-    x-axis: Unique words used
-    y-axis: Average message length
+    Plot vocabulary diversity as a bar chart comparing unique vs total words,
+    with the diversity ratio annotated.
     """
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
-        
-    df_filtered['clean_message_lower'] = df_filtered['clean_message'].str.lower()
+    df_filtered = _filter_by_user(df, username)
+
+    if 'clean_message_lower' not in df_filtered.columns:
+        if 'clean_message' not in df_filtered.columns:
+            df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
+        df_filtered['clean_message_lower'] = df_filtered['clean_message'].str.lower()
+
     corpus = df_filtered['clean_message_lower'].dropna()
-    
+
     unique_words_count = 0
     if not corpus.empty:
         vectorizer = CountVectorizer(stop_words=list(stop_words))
         try:
-            word_matrix = vectorizer.fit_transform(corpus)
+            vectorizer.fit_transform(corpus)
             unique_words_count = len(vectorizer.get_feature_names_out())
-        except ValueError: # Handles empty vocabulary
+        except ValueError:
             unique_words_count = 0
 
-    # Calculate average message length
-    avg_msg_len_val = df_filtered['message'].apply(lambda x: len(str(x).split())).mean()
-    if pd.isna(avg_msg_len_val): # Handle case where mean might be NaN (e.g., no messages)
-        avg_msg_len_val = 0
+    total_words_count = int(df_filtered['message'].apply(lambda x: len(str(x).split())).sum())
+    diversity_ratio = round(unique_words_count / total_words_count, 3) if total_words_count > 0 else 0
 
-
-    plt.figure(figsize=(10, 8))
-    if unique_words_count > 0:
-        plt.scatter(unique_words_count, avg_msg_len_val, color='green')
-    else:
-        plt.text(0.5, 0.5, "Not enough data for vocabulary diversity.", ha='center', va='center', fontsize=12)
-        # Still set x/y limits to make the plot consistent if needed, or adjust as per visualization strategy
-        plt.xlim(0, 1) # Example limits
-        plt.ylim(0, 1) # Example limits
-
-    apply_consistent_plot_styling(plt, f'Vocabulary Diversity {"for " + username if username else ""}', 'Unique Words (Count)', 'Average Message Length (Words)')
+    fig, ax = plt.subplots(figsize=(7, 5))
+    bars = ax.bar(['Unique Words', 'Total Words'], [unique_words_count, total_words_count],
+                  color=['#075e54', '#25d366'])
+    ax.bar_label(bars, padding=3, fontsize=11)
+    ax.set_title(f'Vocabulary Diversity {"for " + username if username else ""}\n(Diversity Ratio: {diversity_ratio:.3f})',
+                 fontsize=13)
+    ax.set_ylabel('Word Count', fontsize=12)
+    ax.set_ylim(0, max(total_words_count * 1.15, 1))
+    plt.tight_layout()
     return plot_to_base64(plt)
 
 def plot_language_complexity_pos(df, username=None):
@@ -321,13 +383,12 @@ def plot_language_complexity_pos(df, username=None):
     Analyze and plot the distribution of POS tags for a user or the entire chat,
     and return a base64 image of the plot.
     """
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     # Function to extract POS tags from a message
     def extract_pos_tags(message):
+        if TextBlob is None:
+            return []
         analysis = TextBlob(message)
         return [tag for (word, tag) in analysis.tags]
 
@@ -336,6 +397,14 @@ def plot_language_complexity_pos(df, username=None):
 
     # Flatten the list of POS tags and count their occurrences
     all_pos_tags = [tag for sublist in df_filtered['pos_tags'] for tag in sublist]
+    if not all_pos_tags:
+        return _render_empty_plot(
+            "No POS tags available for this dataset.",
+            f'POS Tag Distribution {"for " + username if username else ""}',
+            "POS Tag",
+            "Count",
+        )
+
     pos_counts = Counter(all_pos_tags)
 
     # Convert to DataFrame for plotting
@@ -362,15 +431,30 @@ def plot_user_relationship_graph(df):
     for user in df['name'].unique():
         G.add_node(user)
 
-    # Analyze interactions and add edges
-    for i in range(len(df) - 1):
-        sender = df['name'].iloc[i]
-        next_sender = df['name'].iloc[i + 1]
-        if sender != next_sender:
-            if G.has_edge(sender, next_sender):
-                G[sender][next_sender]['weight'] += 1
-            else:
-                G.add_edge(sender, next_sender, weight=1)
+    if len(G.nodes) == 0:
+        return _render_empty_plot(
+            "No user interactions available.",
+            "User Relationship Graph",
+        )
+
+    # Vectorised interaction counting using pandas shift (avoids slow Python loop)
+    names = df['name'].values
+    senders = names[:-1]
+    receivers = names[1:]
+    # Only count cross-person consecutive messages
+    mask = senders != receivers
+    pair_counts = pd.Series(list(zip(senders[mask], receivers[mask]))).value_counts()
+    for (sender, receiver), weight in pair_counts.items():
+        if G.has_edge(sender, receiver):
+            G[sender][receiver]['weight'] += weight
+        else:
+            G.add_edge(sender, receiver, weight=int(weight))
+
+    if len(G.edges) == 0:
+        return _render_empty_plot(
+            "Not enough cross-user interactions to draw a graph.",
+            "User Relationship Graph",
+        )
 
     # Draw the graph
     plt.figure(figsize=(12, 10))
@@ -386,17 +470,15 @@ def plot_skills_radar_chart(df, username=None):
     """
     Generate a radar chart to visualize various skills based on keyword analysis.
     """
-    if username:
-        df_filtered = df[df['name'] == username].copy()
-    else:
-        df_filtered = df.copy()
+    df_filtered = _filter_by_user(df, username)
 
     
 
-    # Count keyword occurrences for each skill
+    # Count keyword occurrences for each skill (escape keywords to avoid regex issues)
     skill_counts = {}
     for skill, keywords in skill_keywords.items():
-        skill_counts[skill] = sum(df_filtered['clean_message'].str.lower().str.count('|'.join(keywords)))
+        pattern = '|'.join(re.escape(kw) for kw in keywords)
+        skill_counts[skill] = int(df_filtered['clean_message'].str.lower().str.count(pattern).sum())
 
     # Prepare data for radar chart
     skills = list(skill_counts.keys())
@@ -416,6 +498,11 @@ def plot_skills_radar_chart(df, username=None):
 
     # Number of variables (skills)
     num_vars = len(skills)
+    if num_vars == 0:
+        return _render_empty_plot(
+            "No skill categories available.",
+            f'Skills Radar Chart {"for " + username if username else ""}',
+        )
 
     # Compute angle for each axis
     angles = [n / float(num_vars) * 2 * 3.14159 for n in range(num_vars)]

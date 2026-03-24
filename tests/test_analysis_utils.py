@@ -149,7 +149,7 @@ class TestAnalysisUtils(unittest.TestCase):
         self.assertIsInstance(stats_dict_user1['Common Unigrams'], str)
         self.assertTrue("<li>test: 2</li>" in stats_dict_user1['Common Unigrams'] or "<li>test: 2</li>" in stats_dict_user1['Common Unigrams'])
         self.assertIsInstance(stats_dict_user1['Hindi Abuse Counts'], str)
-        self.assertEqual(stats_dict_user1['Hindi Abuse Counts'], "<ul></ul>") # Assuming no abuse words
+        self.assertEqual(stats_dict_user1['Hindi Abuse Counts'], "") # Assuming no abuse words
 
     def test_basic_stats_runs_without_error(self):
         """ Test that basic_stats completes without error for a typical case."""

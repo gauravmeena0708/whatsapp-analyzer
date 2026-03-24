@@ -10,3 +10,4 @@ examples/usage1.py
 *.pyc
 dist/
 *.egg-info/
+tmp/*

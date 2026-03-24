@@ -1,5 +1,9 @@
-import pandas as pd
-from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+try:
+    from nltk.corpus import stopwords
+except ModuleNotFoundError:
+    stopwords = None
 
 # Now add the variables at the end of the file
 custom_hinglish_stopwords = set([
@@ -12,8 +16,14 @@ custom_hinglish_stopwords = set([
     'tu', 'ya', 'edited'
 ])
 
-# Combine NLTK stopwords with custom Hinglish stopwords
-stop_words = set(stopwords.words('english')).union(custom_hinglish_stopwords)
+# Combine NLTK stopwords with custom Hinglish stopwords, but keep imports usable
+# even when NLTK corpora have not been downloaded yet.
+try:
+    _english_stop_words = set(stopwords.words('english')) if stopwords is not None else set(ENGLISH_STOP_WORDS)
+except LookupError:
+    _english_stop_words = set(ENGLISH_STOP_WORDS)
+
+stop_words = _english_stop_words.union(custom_hinglish_stopwords)
 
 skill_keywords = {
     'communication': [
@@ -66,7 +76,7 @@ hindi_abusive_words = [
         'chutiya maa ki', 'madarchod maa ka', 'madarchod maa ki', 'madarchod bhai',
         'madarchod bahen', 'bhosdike bhai', 'bhosdike bahen', 'chutiya bhai', 'chutiya bahen',
         'gandu bhai', 'gandu bahen', 'harami bhai', 'harami bahen', 'bhadwe bhai', 'bhadwe bahen',
-        'bsdiwala', 'iski maka', 'betichod', "gand", "bc", "mc", "madar", "bkl", "bkl", "bkl", "bkl",]
+        'bsdiwala', 'iski maka', 'betichod', "gand", "bc", "mc", "madar", "bkl",]
 
 html_template = """
 <!DOCTYPE html>
@@ -122,20 +132,11 @@ body {{
             color: #4CAF50;
             margin-bottom: 15px;
         }}
-        .location, .social-links {{
+        .location {{
             font-size: 1rem;
             color: #555;
             margin-bottom: 15px;
         }}
-        .social-links a {{
-            margin: 0 10px;
-            color: #fff;
-            padding: 8px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-        }}
-        .social-links a.facebook {{ background-color: #3b5998; }}
-        .social-links a.instagram {{ background-color: #e4405f; }}
         .user-report {{
             background-color: #fff;
             border-radius: 10px;
@@ -215,11 +216,11 @@ body {{
         <div class="row mt-4">
             <div class="col-md-3">
                 <div class="profile-card">
-                    <img src="https://via.placeholder.com/150" alt="{name}'s Profile Picture" class="profile-img">
+                    <div class="profile-img d-flex align-items-center justify-content-center" style="background-color:#075e54;border-radius:50%;width:120px;height:120px;margin:0 auto 15px;">
+                        <span style="font-size:2.5rem;color:#fff;font-weight:700;">{initials}</span>
+                    </div>
                     <h3 class="username">{name}</h3>
-                    <p class="status">Active User</p>
-                    <p class="location"><i class="fas fa-map-marker-alt"></i> Location: New Delhi</p>
-                    
+                    <p class="status">Chat Participant</p>
                 </div>
             </div>
             <div class="col-md-9">
@@ -229,7 +230,7 @@ body {{
                         <table class="table table-striped">
                             <tr><th>Total Messages</th><td>{Total Messages}</td></tr>
                             <tr><th>Total Words</th><td>{Total Words}</td></tr>
-                            <tr><th>Unique Users</th><td>{Unique Users}</td></tr>
+                            <tr><th>Unique Words</th><td>{Unique Words Count}</td></tr>
                             <tr><th>Total Emojis</th><td>{Total Emojis}</td></tr>
                             <tr><th>Top 5 Emojis</th><td class="emoji">{top_5_emojis_html}</td></tr>
                             <tr><th>Total URLs</th><td>{Total URLs}</td></tr>
@@ -246,7 +247,6 @@ body {{
                             <tr><th>Evening Messages</th><td>{Evening Messages}</td></tr>
                             <tr><th>Night Messages</th><td>{Night Messages}</td></tr>
                             <tr><th>Most Active Period</th><td>{Most Active Period}</td></tr>
-                            <tr><th>Unique Words Count</th><td>{Unique Words Count}</td></tr>
                             <tr><th>Average Response Time (minutes)</th><td>{Average Response Time:.2f}</td></tr>
                         </table>
                     </div>
@@ -343,6 +343,83 @@ body {{
         <footer class="footer">
             <p>Generated with <i class="fas fa-heart"></i> by WhatsApp Analyzer</p>
             <p><a href="https://github.com/gauravmeena0708/k" target="_blank"><i class="fab fa-github"></i> Visit the Project</a></p>
+        </footer>
+    </div>
+</body>
+</html>
+"""
+
+index_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat Analysis - Group Summary</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        body {{ font-family: 'Roboto', sans-serif; background-color: #f4f4f4; }}
+        .container {{ max-width: 1100px; margin: 20px auto; }}
+        .header {{ background-color: #075e54; color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center; }}
+        .section {{ background: white; padding: 20px; margin-top: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }}
+        .user-link {{ text-decoration: none; color: #075e54; font-weight: bold; }}
+        .user-card {{ border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; transition: 0.3s; }}
+        .user-card:hover {{ background-color: #f0f0f0; }}
+        .visualization img {{ max-width: 100%; height: auto; border-radius: 10px; }}
+        .footer {{ background-color: #075e54; color: white; text-align: center; padding: 15px; margin-top: 20px; border-radius: 0 0 10px 10px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>WhatsApp Group Chat Summary</h1>
+        </header>
+        
+        <div class="section">
+            <h2>Group Statistics</h2>
+            <table class="table table-striped">
+                <tr><th>Total Messages</th><td>{Total Messages}</td></tr>
+                <tr><th>Total Participants</th><td>{Unique Users}</td></tr>
+                <tr><th>Most Active Period</th><td>{Most Active Period}</td></tr>
+                <tr><th>Total Media</th><td>{Total Media}</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Participants</h2>
+            <div class="row">
+                {user_links}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Group Visualizations</h2>
+            <div class="row">
+                <div class="col-md-6 visualization">
+                    <h4>Activity Heatmap</h4>
+                    <img src="data:image/png;base64,{Activity Heatmap}" alt="Activity Heatmap">
+                </div>
+                <div class="col-md-6 visualization">
+                    <h4>User Relationship Graph</h4>
+                    <img src="data:image/png;base64,{User Relationship Graph}" alt="User Relationship Graph">
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-md-6 visualization">
+                    <h4>Most Active Hours</h4>
+                    <img src="data:image/png;base64,{Most Active Hours}" alt="Most Active Hours">
+                </div>
+                <div class="col-md-6 visualization">
+                    <h4>Sentiment Over Time</h4>
+                    <img src="data:image/png;base64,{Sentiment Over Time}" alt="Sentiment Over Time">
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Generated with <i class="fas fa-heart"></i> by WhatsApp Analyzer</p>
         </footer>
     </div>
 </body>
