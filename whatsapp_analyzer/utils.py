@@ -227,13 +227,6 @@ def anonymize(input_chat_path: str, output_chat_path: str):
         print(f"An error occurred: {e}") # General exception handling
         return
 
-    # For debugging purposes (to be replaced with file writing logic later)
-    # Remove previous debugging print statements
-    # print("Username to Anonymous Map:", username_to_anonymous_map)
-    # print("\nParsed Lines Data:")
-    # for item in parsed_lines_data:
-    #     print(item)
-
     try:
         with open(output_chat_path, "w", encoding="utf-8") as f:
             for item in parsed_lines_data:
