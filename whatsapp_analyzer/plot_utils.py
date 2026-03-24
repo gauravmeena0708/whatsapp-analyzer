@@ -109,6 +109,9 @@ def generate_wordcloud(df, username=None):
     else:
         df_filtered = df.copy()
 
+    if df_filtered.empty:
+        return ""
+
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     text = " ".join(msg for msg in df_filtered['clean_message'] if isinstance(msg, str) and len(msg.strip())>0)
 
@@ -132,6 +135,9 @@ def analyze_language_complexity(df, username=None):
         df_filtered = df[df['name'] == username].copy()
     else:
         df_filtered = df.copy()
+
+    if df_filtered.empty:
+        return ""
 
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     
