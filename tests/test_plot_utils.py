@@ -1,7 +1,7 @@
 # tests/test_plot_utils.py
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import sys
 
 # Mocking dependencies to allow importing plot_utils
@@ -21,7 +21,7 @@ sys.modules['networkx'] = MagicMock()
 sys.modules['emoji'] = MagicMock()
 
 # Now we can import the function to test
-from whatsapp_analyzer.plot_utils import clean_message
+from whatsapp_analyzer.plot_utils import clean_message, analyze_sentiment_over_time
 
 class TestPlotUtils(unittest.TestCase):
 
@@ -66,6 +66,110 @@ class TestPlotUtils(unittest.TestCase):
         """Test empty and whitespace-only strings."""
         self.assertEqual(clean_message(""), "")
         self.assertEqual(clean_message("   "), "")
+
+    @patch('whatsapp_analyzer.plot_utils.TextBlob')
+    @patch('whatsapp_analyzer.plot_utils.pd')
+    @patch('whatsapp_analyzer.plot_utils.plt')
+    @patch('whatsapp_analyzer.plot_utils.plot_to_base64')
+    @patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling')
+    def test_analyze_sentiment_over_time(self, mock_apply_styling, mock_plot_to_base64, mock_plt, mock_pd, mock_textblob):
+        """Test analyze_sentiment_over_time function without a username."""
+        mock_df = MagicMock()
+        mock_df_filtered = MagicMock()
+        mock_df.copy.return_value = mock_df_filtered
+
+        mock_message_col = MagicMock()
+        mock_sentiment_col = MagicMock()
+
+        def getitem_side_effect(key):
+            if key == 'message': return mock_message_col
+            if key == 'sentiment': return mock_sentiment_col
+            if key == 'date': return MagicMock()
+            return MagicMock()
+
+        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
+
+        mock_df_filtered.empty = False
+
+        mock_resampler = MagicMock()
+        mock_mean_result = MagicMock()
+        mock_mean_result.index = [1, 2]
+        mock_mean_result.values = [0.1, 0.2]
+        mock_resampler.mean.return_value = mock_mean_result
+        mock_sentiment_col.resample.return_value = mock_resampler
+
+        mock_plot_to_base64.return_value = "base64_encoded_string"
+
+        result = analyze_sentiment_over_time(mock_df)
+
+        self.assertEqual(result, "base64_encoded_string")
+        mock_df.copy.assert_called_once()
+        mock_df_filtered.set_index.assert_called_once_with('date', inplace=True)
+        mock_sentiment_col.resample.assert_called_once_with('W')
+        mock_resampler.mean.assert_called_once()
+        mock_plt.figure.assert_called_once()
+        mock_plt.plot.assert_called_once()
+        mock_apply_styling.assert_called_once()
+        mock_plot_to_base64.assert_called_once_with(mock_plt)
+
+    def test_analyze_sentiment_over_time_empty(self):
+        """Test analyze_sentiment_over_time with empty dataframe."""
+        mock_df = MagicMock()
+        mock_df_filtered = MagicMock()
+        mock_df.copy.return_value = mock_df_filtered
+        mock_df_filtered.empty = True
+
+        result = analyze_sentiment_over_time(mock_df)
+        self.assertEqual(result, "")
+
+    @patch('whatsapp_analyzer.plot_utils.TextBlob')
+    @patch('whatsapp_analyzer.plot_utils.pd')
+    @patch('whatsapp_analyzer.plot_utils.plt')
+    @patch('whatsapp_analyzer.plot_utils.plot_to_base64')
+    @patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling')
+    def test_analyze_sentiment_over_time_with_username(self, mock_apply_styling, mock_plot_to_base64, mock_plt, mock_pd, mock_textblob):
+        """Test analyze_sentiment_over_time function with a username."""
+        mock_df = MagicMock()
+        mock_df_filtered = MagicMock()
+
+        mock_filter_result = MagicMock()
+        mock_filter_result.copy.return_value = mock_df_filtered
+        mock_df.__getitem__.return_value = mock_filter_result
+
+        mock_message_col = MagicMock()
+        mock_sentiment_col = MagicMock()
+
+        def getitem_side_effect(key):
+            if key == 'message': return mock_message_col
+            if key == 'sentiment': return mock_sentiment_col
+            if key == 'date': return MagicMock()
+            return MagicMock()
+
+        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
+
+        mock_df_filtered.empty = False
+
+        mock_resampler = MagicMock()
+        mock_mean_result = MagicMock()
+        mock_mean_result.index = [1, 2]
+        mock_mean_result.values = [0.1, 0.2]
+        mock_resampler.mean.return_value = mock_mean_result
+        mock_sentiment_col.resample.return_value = mock_resampler
+
+        mock_plot_to_base64.return_value = "base64_encoded_string"
+
+        result = analyze_sentiment_over_time(mock_df, username="Alice")
+
+        self.assertEqual(result, "base64_encoded_string")
+        mock_filter_result.copy.assert_called_once()
+        mock_df_filtered.set_index.assert_called_once_with('date', inplace=True)
+        mock_sentiment_col.resample.assert_called_once_with('W')
+        mock_resampler.mean.assert_called_once()
+        mock_plt.figure.assert_called_once()
+        mock_plt.plot.assert_called_once()
+        mock_apply_styling.assert_called_once()
+        mock_plot_to_base64.assert_called_once_with(mock_plt)
+
 
 if __name__ == '__main__':
     unittest.main()

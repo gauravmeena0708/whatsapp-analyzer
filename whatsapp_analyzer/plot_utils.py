@@ -177,6 +177,9 @@ def analyze_sentiment_over_time(df, username=None):
     else:
         df_filtered = df.copy()
 
+    if df_filtered.empty:
+        return ""
+
     df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
     df_filtered['date'] = pd.to_datetime(df_filtered['date'])
     df_filtered.set_index('date', inplace=True)
