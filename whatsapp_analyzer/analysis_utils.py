@@ -1,11 +1,15 @@
 # whatsapp_analyzer/analysis_utils.py
 
-import html
-import nltk
-from textblob import TextBlob
+import re
+from html import escape
 from sklearn.feature_extraction.text import CountVectorizer
 from collections import Counter
-import pandas as pd # Though df is passed, good practice
+import pandas as pd
+
+try:
+    import nltk
+except ModuleNotFoundError:
+    nltk = None
 
 # Imports from within the package
 from .constants import (
@@ -16,6 +20,8 @@ from .constants import (
 from .plot_utils import (
     clean_message, # Used in basic_stats, analyze_behavioral_traits
     extract_emojis, # Used in basic_stats
+    _polarity_subjectivity,
+    _sentence_count,
     plot_activity_heatmap,
     plot_sentiment_distribution,
     plot_most_active_hours,
@@ -41,14 +47,18 @@ def analyze_message_timing(df, username=None):
     else:
         df_filtered = df.copy()
 
-    # Ensure 'date' column is datetime
-    if not pd.api.types.is_datetime64_any_dtype(df_filtered['date']):
-        df_filtered['date'] = pd.to_datetime(df_filtered['date'])
+    # Ensure 'date_time' column is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df_filtered['date_time']):
+        df_filtered['date_time'] = pd.to_datetime(df_filtered['date_time'])
 
-    # Use 'date_time' column for accurate time difference calculation
-    df_filtered['time_diff'] = df_filtered.groupby('name')['date_time'].diff()
-    response_times = df_filtered['time_diff'].dropna().apply(lambda x: x.total_seconds() / 60)  # in minutes
+    # When filtered to a single user, diff() directly gives time between their messages.
+    # When unfiltered, group by user so we don't compute diff across different senders.
+    if username:
+        df_filtered['time_diff'] = df_filtered['date_time'].diff()
+    else:
+        df_filtered['time_diff'] = df_filtered.groupby('name')['date_time'].diff()
 
+    response_times = df_filtered['time_diff'].dropna().apply(lambda x: x.total_seconds() / 60)
     return response_times
 
 # Helper function to prepare user-specific data
@@ -58,10 +68,11 @@ def _prepare_user_data(df_orig, username=None):
     else:
         df_filtered = df_orig.copy()
 
-    # Sentiment Analysis
-    sentiments = df_filtered['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-    positive_msgs = sum(sentiments > 0)
-    negative_msgs = sum(sentiments < 0)
+    # Sentiment Analysis — compute once and store as columns so plot functions can reuse them
+    df_filtered['sentiment'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[0])
+    df_filtered['subjectivity'] = df_filtered['message'].apply(lambda x: _polarity_subjectivity(x)[1])
+    positive_msgs = int((df_filtered['sentiment'] > 0).sum())
+    negative_msgs = int((df_filtered['sentiment'] < 0).sum())
 
     # Time of Day Analysis
     def categorize_time_of_day(hour):
@@ -130,14 +141,14 @@ def analyze_behavioral_traits(df, username=None):
 
     traits = {}
 
-    # --- Sentiment Analysis (already done in _prepare_user_data, but if called independently) ---
-    if 'sentiment_polarity' not in df_filtered_behavior.columns:
-        df_filtered_behavior['sentiment_polarity'] = df_filtered_behavior['message'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-    if 'sentiment_subjectivity' not in df_filtered_behavior.columns:
-        df_filtered_behavior['sentiment_subjectivity'] = df_filtered_behavior['message'].apply(lambda x: TextBlob(str(x)).sentiment.subjectivity)
-    
-    traits['avg_sentiment_polarity'] = df_filtered_behavior['sentiment_polarity'].mean()
-    traits['avg_sentiment_subjectivity'] = df_filtered_behavior['sentiment_subjectivity'].mean()
+    # --- Sentiment Analysis — reuse pre-computed columns from _prepare_user_data if available ---
+    if 'sentiment' not in df_filtered_behavior.columns:
+        df_filtered_behavior['sentiment'] = df_filtered_behavior['message'].apply(lambda x: _polarity_subjectivity(x)[0])
+    if 'subjectivity' not in df_filtered_behavior.columns:
+        df_filtered_behavior['subjectivity'] = df_filtered_behavior['message'].apply(lambda x: _polarity_subjectivity(x)[1])
+
+    traits['avg_sentiment_polarity'] = df_filtered_behavior['sentiment'].mean()
+    traits['avg_sentiment_subjectivity'] = df_filtered_behavior['subjectivity'].mean()
 
 
     # --- Psychometric Analysis ---
@@ -146,13 +157,15 @@ def analyze_behavioral_traits(df, username=None):
     traits['first_person_pronouns'] = df_filtered_behavior['clean_message'].str.lower().str.count(r'\b(i|me|my|mine|myself)\b').sum()
 
     # --- Skill Analysis (Keyword-based) ---
+    # Escape each keyword to avoid regex special characters causing silent mismatches
     traits['skills'] = {}
     for skill, keywords in skill_keywords.items():
-        traits['skills'][skill] = sum(df_filtered_behavior['clean_message_lower'].str.count('|'.join(keywords)))
+        pattern = '|'.join(re.escape(kw) for kw in keywords)
+        traits['skills'][skill] = int(df_filtered_behavior['clean_message_lower'].str.count(pattern).sum())
 
 
     # --- Language Complexity ---
-    df_filtered_behavior['sentence_length_behavioral'] = df_filtered_behavior['clean_message'].apply(lambda x: len(nltk.sent_tokenize(str(x))) if str(x).strip() else 0)
+    df_filtered_behavior['sentence_length_behavioral'] = df_filtered_behavior['clean_message'].apply(_sentence_count)
     traits['avg_sentence_length'] = df_filtered_behavior['sentence_length_behavioral'].mean()
 
 
@@ -274,7 +287,7 @@ def analyze_hindi_abuse(df, username=None):
 
     return abuse_counts
 
-def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_instance is no longer needed
+def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, analyzer_instance=None): # analyzer_instance is no longer needed
     """
     Calculate basic statistics about messages, including sentiment, time analysis,
     most common n-grams (unigrams, bigrams, trigrams), most active period, and visualizations.
@@ -304,7 +317,7 @@ def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_inst
     top_5_emojis = Counter(all_emojis_list).most_common(5)
 
     # Average Sentence Length
-    df_filtered['sentence_length_basic'] = df_filtered['clean_message'].apply(lambda x: len(nltk.sent_tokenize(str(x))))
+    df_filtered['sentence_length_basic'] = df_filtered['clean_message'].apply(_sentence_count)
     avg_sentence_length = df_filtered['sentence_length_basic'].apply(lambda x: len(str(x).split()) / x if x > 0 else 0).mean()
 
 
@@ -324,7 +337,11 @@ def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_inst
     sentiment_bubble_base64 = plot_sentiment_bubble(df_filtered, username)
     vocabulary_diversity_base64 = plot_vocabulary_diversity(df_filtered, username) # Uses clean_message_lower
     language_complexity_pos_base64 = plot_language_complexity_pos(df_filtered, username)
-    user_relationship_graph_base64 = plot_user_relationship_graph(df_orig) # Graph is for all users
+    user_relationship_graph_base64 = (
+        shared_user_relationship_graph
+        if shared_user_relationship_graph is not None
+        else plot_user_relationship_graph(df_orig)
+    ) # Graph is for all users
     skills_radar_chart_base64 = plot_skills_radar_chart(df_filtered, username) # Uses clean_message
     emotion_over_time_base64 = analyze_emotion_over_time(df_filtered, username)
     most_active_hours_base64 = plot_most_active_hours(df_filtered, username)
@@ -338,15 +355,12 @@ def basic_stats(df_orig, username=None, analyzer_instance=None): # analyzer_inst
     # Pass df_filtered which already has 'clean_message'
     abuse_counts = analyze_hindi_abuse(df_filtered, username)
     
-    abuse_counts_html = "<ul>"
-    for word, count in abuse_counts.items():
-        abuse_counts_html += f"<li>{html.escape(str(word))}: {count}</li>"
-    abuse_counts_html += "</ul>"
+    abuse_counts_html = "".join([f"<li>{escape(word)}: {count}</li>" for word, count in abuse_counts.items()])
 
     # Format n-grams as HTML list items
-    common_unigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_unigrams])
-    common_bigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_bigrams])
-    common_trigrams_html = "".join([f"<li>{html.escape(str(word[0]))}: {word[1]}</li>" for word in common_trigrams])
+    common_unigrams_html = "".join([f"<li>{escape(word[0])}: {word[1]}</li>" for word in common_unigrams])
+    common_bigrams_html = "".join([f"<li>{escape(word[0])}: {word[1]}</li>" for word in common_bigrams])
+    common_trigrams_html = "".join([f"<li>{escape(word[0])}: {word[1]}</li>" for word in common_trigrams])
 
     stats = {
         'Total Messages': len(df_filtered),

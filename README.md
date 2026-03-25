@@ -6,6 +6,7 @@ The WhatsApp Chat Analyzer is a Python project designed to parse and analyze Wha
 
 ## Features
 
+*   **Group Summary Report:** Generates a central `index.html` with group-wide statistics and links to all participant reports.
 *   **General Statistics:**
     *   Total messages, words, emojis, media files shared, and URLs.
     *   Counts of edited and deleted messages.
@@ -47,99 +48,70 @@ The WhatsApp Chat Analyzer is a Python project designed to parse and analyze Wha
 
 ## How to Use
 
-### As a Python library
+### Using the Command Line Interface (CLI)
 
-This is the primary way to use the analyzer.
+The easiest way to use the analyzer is via the built-in CLI command:
+
+```bash
+# Analyze a chat file and save reports to the 'my_reports' directory
+whatsapp-analyzer path/to/chat.txt -o my_reports
+
+# Generate reports for specific users only
+whatsapp-analyzer path/to/chat.txt -o my_reports -u "John Doe" "Jane Smith"
+```
+
+If you haven't installed the package yet, you can also run it using:
+```bash
+python -m whatsapp_analyzer.run path/to/chat.txt -o my_reports
+```
+
+### As a Python library
 
 ```python
 from whatsapp_analyzer.analyzer import WhatsAppAnalyzer
 
 # Initialize with the path to your WhatsApp chat file and desired output directory
-# Replace with the actual path to your exported chat file (usually a .txt file)
 chat_file_path = "path/to/your/whatsapp_chat.txt" 
-output_directory_path = "path/to/output_directory" # Reports will be saved here
+output_directory_path = "path/to/output_directory"
 
 analyzer = WhatsAppAnalyzer(chat_file=chat_file_path, 
                             out_dir=output_directory_path)
 
-# Generate reports for all users found in the chat
+# Generate reports for all users and a group summary (index.html)
 analyzer.generate_report()
-
-# To generate reports for specific users (optional):
-# analyzer.generate_report(users=["User1", "User2"]) 
-# Replace "User1", "User2" with actual names as they appear in the chat.
 ```
 
 ### Anonymizing Chat Data
 
-If you need to anonymize chat data before analysis (e.g., for privacy reasons), you can use the `anonymize` utility function. This function reads a WhatsApp chat file, replaces actual usernames with placeholder names in the format "user_ID_Animal" (e.g., "user_1_Panda", "user_2_Shark"), and saves the result to a new file. System messages and original message content (including any names mentioned there) are preserved.
-
-Here's how to use it:
+If you need to anonymize chat data before analysis, you can use the `anonymize` utility function:
 
 ```python
 from whatsapp_analyzer.utils import anonymize
 
-input_chat_file = "path/to/your/original_whatsapp_chat.txt"
-anonymized_chat_file = "path/to/your/anonymized_chat.txt"
-
-anonymize(input_chat_file, anonymized_chat_file)
-print(f"Anonymized chat has been saved to: {anonymized_chat_file}")
+anonymize("original_chat.txt", "anonymized_chat.txt")
 ```
-After running this, you can use the `anonymized_chat_file` as the input for `WhatsAppAnalyzer`.
-
-### As an example script
-
-The project includes an example script `whatsapp_analyzer/run.py` that demonstrates how to use the `WhatsAppAnalyzer` class.
-
-1.  **Navigate to the project directory.**
-2.  **Modify paths in `run.py` (if necessary):**
-    *   Open `whatsapp_analyzer/run.py`.
-    *   Change the `chat_file` and `output_dir` variables to point to your WhatsApp chat export file and your desired output folder, respectively.
-3.  **Run the script:**
-    If you are in the parent directory of `whatsapp_analyzer` (e.g., the root of the cloned repository), you can run it as a module:
-    ```bash
-    python -m whatsapp_analyzer.run
-    ```
 
 ## Understanding the Output
 
-The analyzer generates an HTML report for each user (e.g., `UserName_report.html`) in the specified output directory. Each report includes:
+The analyzer generates a folder containing:
 
-*   **Profile Summary:** Basic user information (placeholder for now).
-*   **Key Statistics:** Tables with various counts and averages (total messages, words, emojis, average message length, etc.).
-*   **Common Words:** Lists of most frequent unigrams, bigrams, and trigrams, plus detected Hindi abuse words.
-*   **Visualizations:** A rich set of charts and graphs embedded directly in the report, including:
-    *   Activity Heatmap
-    *   Most Active Hours
-    *   Response Time Distribution
-    *   Sentiment Over Time & Distribution
-    *   Emotion Trends
-    *   Emoji Usage
-    *   Word Cloud
-    *   Language Complexity & Vocabulary Diversity plots
-    *   User Relationship Graph (same for all users, shows overall chat interaction)
-    *   Skills Radar Chart
-*   **Behavioral Insights:** A textual summary of potential behavioral traits inferred from the analysis.
+1.  **`index.html`**: A central dashboard showing group-level statistics, activity heatmaps, and links to each individual's report.
+2.  **`User_Name_report.html`**: Detailed reports for each participant, including:
+    *   **Key Statistics:** Tables with message counts, averages, and linguistic metrics.
+    *   **Common Words:** Most frequent n-grams and detected Hindi abuse words.
+    *   **Visualizations:** A rich set of charts (Heatmaps, Sentiment Trends, Emotion Trends, Word Clouds, etc.).
+    *   **Behavioral Insights:** Inferred traits like communication style and technical skills.
 
 ## Troubleshooting/Notes
 
-*   **Emoji Display:** For the best visual experience, ensure you have emoji-supporting fonts installed on your system (e.g., Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji).
-*   **Chat File Format:** The analyzer is designed to work with standard WhatsApp chat export files, which are typically `.txt` files. Encrypted chat backups are not supported.
-*   **Large Chats:** Analysis of very large chat files can be memory and time-intensive.
+*   **Emoji Display:** If icons look like boxes, ensure you have an emoji-supporting font installed. The tool will attempt to use "Segoe UI Emoji", "Apple Color Emoji", or "Noto Color Emoji" if available.
+*   **Large Chats:** Analysis of very large chat files can be memory-intensive.
+*   **Font Setup:** On some Linux/WSL systems, `matplotlib` might struggle with font caches. The tool is designed to catch these errors and fallback gracefully.
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute to this project, please follow these steps:
-
-1.  **Fork the repository.**
-2.  **Create a new branch** for your feature or bug fix: `git checkout -b feature/your-feature-name` or `git checkout -b fix/issue-number`.
-3.  **Make your changes** and commit them with clear, descriptive messages.
-4.  **Push your changes** to your forked repository.
-5.  **Submit a Pull Request** to the main repository's `main` or `develop` branch.
-
-Please also feel free to open an issue if you find a bug or have a suggestion for a new feature.
+Contributions are welcome! Please follow standard fork/pull-request workflows.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-(Note: You'll need to create a `LICENSE` file in your repository containing the MIT License text if you haven't already.)
