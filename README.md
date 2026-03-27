@@ -46,6 +46,29 @@ The WhatsApp Chat Analyzer is a Python project designed to parse and analyze Wha
 3.  **Emoji Fonts:**
     *   For the best display of emojis in generated reports and visualizations, it is highly recommended to have emoji-supporting fonts installed on your system. Examples include "Segoe UI Emoji" (Windows), "Apple Color Emoji" (macOS), or "Noto Color Emoji" (Linux).
 
+### Optional: Local LLM Monthly Summaries
+
+The analyzer can optionally use a local instruct model to generate better monthly summary paragraphs.
+
+1.  **Install runtime dependencies:**
+    ```bash
+    python -m pip install -U transformers accelerate sentencepiece safetensors torch
+    ```
+2.  **Run with a local summary model:**
+    ```bash
+    python -m whatsapp_analyzer.run path/to/chat.txt -o my_reports --local-summary-model Qwen/Qwen2.5-7B-Instruct
+    ```
+3.  **Recommended first test:**
+    If `7B` is too heavy for your machine, try:
+    ```bash
+    python -m whatsapp_analyzer.run path/to/chat.txt -o my_reports --local-summary-model Qwen/Qwen2.5-3B-Instruct
+    ```
+
+Notes:
+*   The model is downloaded into the Hugging Face cache on first use.
+*   The `7B` model can be slow on CPU-only systems.
+*   If no local summary model is provided, the analyzer falls back to its built-in heuristic monthly summaries.
+
 ## How to Use
 
 ### Using the Command Line Interface (CLI)
@@ -63,6 +86,11 @@ whatsapp-analyzer path/to/chat.txt -o my_reports -u "John Doe" "Jane Smith"
 If you haven't installed the package yet, you can also run it using:
 ```bash
 python -m whatsapp_analyzer.run path/to/chat.txt -o my_reports
+```
+
+To enable local LLM-based monthly summaries:
+```bash
+python -m whatsapp_analyzer.run path/to/chat.txt -o my_reports --local-summary-model Qwen/Qwen2.5-7B-Instruct
 ```
 
 ### As a Python library
