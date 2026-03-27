@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /mnt/c/Users/gaura/Documents/GitHub/whatsapp-analyzer/.github/workflows/*.yml)",
+      "Bash(python:*)",
+      "Bash(git stash:*)",
+      "Bash(pip show:*)"
+    ]
+  }
+}

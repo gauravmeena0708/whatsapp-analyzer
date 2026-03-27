@@ -8,38 +8,41 @@ from .analyzer import WhatsAppAnalyzer
 
 def setup_fonts():
     """Setup emoji-compatible fonts for matplotlib."""
-    try:
-        available_fonts = {fm.FontProperties(fname=fp).get_name() for fp in fm.findSystemFonts(fontext='ttf')}
-        emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"]
-        selected_font = None
+    # Enumerate fonts per-file so a single malformed TTF doesn't abort the whole scan.
+    available_fonts = set()
+    for fp in fm.findSystemFonts(fontext='ttf'):
+        try:
+            available_fonts.add(fm.FontProperties(fname=fp).get_name())
+        except Exception:
+            continue
 
-        for font in emoji_fonts:
-            if font in available_fonts:
-                selected_font = font
-                break
+    emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"]
+    selected_font = next((f for f in emoji_fonts if f in available_fonts), None)
 
-        if selected_font:
-            plt.rcParams["font.family"] = [selected_font, "Roboto", "DejaVu Sans", "sans-serif"]
-        else:
-            warnings.warn(
-                "No emoji-compatible font found. Install 'Segoe UI Emoji', 'Apple Color Emoji', or 'Noto Color Emoji' for full emoji support."
-            )
-            plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans", "sans-serif"]
-    except Exception as e:
-        warnings.warn(f"Font setup failed: {e}. Falling back to default fonts.")
-        plt.rcParams["font.family"] = ["sans-serif"]
+    if selected_font:
+        plt.rcParams["font.family"] = [selected_font, "DejaVu Sans", "sans-serif"]
+    else:
+        plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
 def main():
     parser = argparse.ArgumentParser(description="WhatsApp Chat Analyzer")
     parser.add_argument("chat_file", help="Path to the WhatsApp chat export file (txt)")
     parser.add_argument("-o", "--output", default="reports", help="Directory to save generated reports (default: reports)")
     parser.add_argument("-u", "--users", nargs="+", help="Specific users to generate reports for (default: all)")
+    parser.add_argument("--fast", action="store_true", help="Skip ML model inference (faster processing, falls back to TextBlob for sentiment)")
 
     args = parser.parse_args()
 
     if not os.path.exists(args.chat_file):
         print(f"Error: Chat file '{args.chat_file}' not found.")
         sys.exit(1)
+
+    if args.fast:
+        try:
+            from whatsapp_analyzer import ml_models
+            ml_models.FAST_MODE = True
+        except ImportError:
+            pass
 
     setup_fonts()
 

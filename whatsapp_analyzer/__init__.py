@@ -4,6 +4,8 @@ Keep package import lightweight so modules like ``parser`` can be imported
 without pulling in optional plotting/NLP/report dependencies.
 """
 
+__version__ = "2.0.0"
+
 __all__ = ["WhatsAppAnalyzer", "anonymize", "df_basic_cleanup"]
 
 

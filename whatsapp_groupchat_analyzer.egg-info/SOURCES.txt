@@ -3,6 +3,7 @@ README.md
 setup.py
 tests/test_analysis_utils.py
 tests/test_analyzer.py
+tests/test_ml_models.py
 tests/test_parser.py
 tests/test_pdf_generator.py
 tests/test_plot_utils.py
@@ -12,6 +13,7 @@ whatsapp_analyzer/analysis_utils.py
 whatsapp_analyzer/analyzer.py
 whatsapp_analyzer/constants.py
 whatsapp_analyzer/exceptions.py
+whatsapp_analyzer/ml_models.py
 whatsapp_analyzer/parser.py
 whatsapp_analyzer/pdf_generator.py
 whatsapp_analyzer/plot_utils.py
