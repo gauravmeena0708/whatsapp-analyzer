@@ -15,7 +15,7 @@ from .plot_utils import plot_user_relationship_graph, render_chartjs, clean_mess
 from .constants import stop_words
 from .analysis_utils import basic_stats
 from .constants import html_template, index_template
-from .ml_models import get_sentence_embeddings, predict_sentiment
+from .ml_models import get_sentence_embeddings, predict_sentiment, generate_local_summary
 
 SUMMARY_NOISE_WORDS = {
     "iit", "delhi", "email", "body", "faculty", "advisor", "warden", "hostel",
@@ -588,9 +588,10 @@ def _classify_discussion_mode(messages):
         return "general"
 
     disagreement_markers = (
-        "should", "shouldn't", "shouldnt", "why", "how", "issue", "problem", "fair",
-        "allowed", "ban", "rule", "true", "status", "logic", "protest", "transparency",
-        "confirmed", "really", "seriously", "what is", "not fair", "lack of"
+        "not fair", "fairness", "allowed", "should be allowed", "should not",
+        "shouldn't", "ban", "banned", "rule", "rules", "logic behind", "lack of transparency",
+        "double standard", "segregation", "problem with", "issue with", "protest",
+        "why only", "who is doing this", "is it really", "new low", "confirmed so"
     )
     planning_markers = (
         "meet", "meeting", "schedule", "tomorrow", "today", "come", "send", "share",
@@ -601,28 +602,111 @@ def _classify_discussion_mode(messages):
         "party", "best wishes", "many happy returns"
     )
 
-    text = " ".join(message.casefold() for message in messages[:80])
-    question_count = sum(message.count("?") for message in messages[:80])
+    sample_messages = messages[:80]
+    text = " ".join(message.casefold() for message in sample_messages)
+    question_count = sum(message.count("?") for message in sample_messages)
     disagreement_hits = sum(text.count(marker) for marker in disagreement_markers)
     planning_hits = sum(text.count(marker) for marker in planning_markers)
     celebratory_hits = sum(text.count(marker) for marker in celebratory_markers)
+    disagreement_messages = sum(
+        1 for message in sample_messages
+        if any(marker in message.casefold() for marker in disagreement_markers)
+    )
+    planning_messages = sum(
+        1 for message in sample_messages
+        if any(marker in message.casefold() for marker in planning_markers)
+    )
 
     if celebratory_hits >= 2:
         return "celebratory"
-    if disagreement_hits >= 5 or question_count >= max(6, len(messages) // 6):
+    if disagreement_hits >= 4 and disagreement_messages >= max(3, len(sample_messages) // 8):
         return "debate"
-    if planning_hits >= 5:
+    if disagreement_hits >= 2 and disagreement_messages >= max(4, len(sample_messages) // 5) and question_count >= 8:
+        return "debate"
+    if planning_hits >= 5 and planning_messages >= max(3, len(sample_messages) // 8):
         return "coordination"
     return "general"
+
+
+def _build_summary_digest(period, messages, total_messages, sentiment_label, busiest_day,
+                          top_user=None, top_user_count=0, share=0, media_count=0, link_count=0,
+                          emojis=None):
+    dominant_clusters = _cluster_messages_by_topic(messages)
+    dominant_messages = dominant_clusters[0] if dominant_clusters else []
+    dominant_label, dominant_phrases, dominant_keywords = _summarize_topic_label(dominant_messages or messages)
+    discussion_mode = _classify_discussion_mode(dominant_messages or messages)
+    supporting_phrases = _pick_supporting_phrases(dominant_phrases[1:], dominant_keywords, limit=2) if dominant_phrases else []
+
+    digest = {
+        "period": str(period),
+        "dominant_label": dominant_label,
+        "discussion_mode": discussion_mode,
+        "supporting_phrases": supporting_phrases,
+        "keywords": dominant_keywords[:4],
+        "total_messages": total_messages,
+        "sentiment_label": sentiment_label,
+        "busiest_day": busiest_day,
+        "top_user": top_user,
+        "top_user_count": top_user_count,
+        "share": share,
+        "media_count": media_count,
+        "link_count": link_count,
+        "emojis": (emojis or [])[:3],
+    }
+    return digest
+
+
+def _generate_llm_month_summary(digest):
+    prompt = (
+        "Write a concise 2-3 sentence monthly WhatsApp group summary.\n"
+        "Focus on the main topic first. Avoid generic words like fairness unless the digest strongly says so.\n"
+        "Do not mention that this is based on statistics or heuristics.\n"
+        "Keep it factual and specific.\n\n"
+        f"Month: {digest['period']}\n"
+        f"Main topic: {digest['dominant_label']}\n"
+        f"Discussion type: {digest['discussion_mode']}\n"
+        f"Supporting threads: {', '.join(digest['supporting_phrases']) or 'none'}\n"
+        f"Keywords: {', '.join(digest['keywords']) or 'none'}\n"
+        f"Tone: {digest['sentiment_label']}\n"
+        f"Messages: {digest['total_messages']}\n"
+        f"Busiest day: {digest['busiest_day']}\n"
+        f"Top user: {digest['top_user']} ({digest['top_user_count']} messages, {digest['share']:.0f}% share)\n"
+        f"Media posts: {digest['media_count']}\n"
+        f"Shared links: {digest['link_count']}\n"
+        f"Emojis: {' '.join(digest['emojis']) or 'none'}\n\n"
+        "Summary:"
+    )
+    summary = generate_local_summary(prompt, max_new_tokens=110)
+    if not summary:
+        return None
+    summary = re.sub(r"\s+", " ", summary).strip()
+    return summary
 
 
 def _build_topic_narrative(period, messages, total_messages, sentiment_label, busiest_day,
                            top_user=None, top_user_count=0, share=0, media_count=0, link_count=0,
                            emojis=None):
-    dominant_clusters = _cluster_messages_by_topic(messages)
-    dominant_messages = dominant_clusters[0] if dominant_clusters else []
-    dominant_label, dominant_phrases, dominant_keywords = _summarize_topic_label(dominant_messages or messages)
-    discussion_mode = _classify_discussion_mode(dominant_messages or messages)
+    digest = _build_summary_digest(
+        period=period,
+        messages=messages,
+        total_messages=total_messages,
+        sentiment_label=sentiment_label,
+        busiest_day=busiest_day,
+        top_user=top_user,
+        top_user_count=top_user_count,
+        share=share,
+        media_count=media_count,
+        link_count=link_count,
+        emojis=emojis,
+    )
+    llm_summary = _generate_llm_month_summary(digest)
+    if llm_summary:
+        return llm_summary
+
+    dominant_label = digest["dominant_label"]
+    dominant_phrases = digest["supporting_phrases"]
+    dominant_keywords = digest["keywords"]
+    discussion_mode = digest["discussion_mode"]
 
     if discussion_mode == "debate":
         opening = f"In {period}, much of the discussion turned into a debate around {dominant_label}."
@@ -635,14 +719,12 @@ def _build_topic_narrative(period, messages, total_messages, sentiment_label, bu
 
     detail_bits = []
     if dominant_phrases:
-        extra_phrases = _pick_supporting_phrases(dominant_phrases[1:], dominant_keywords, limit=2)
-        if extra_phrases:
-            detail_bits.append("recurring threads such as " + ", ".join(extra_phrases))
+        detail_bits.append("recurring threads such as " + ", ".join(dominant_phrases[:2]))
     elif dominant_keywords:
         detail_bits.append("recurring references to " + ", ".join(dominant_keywords[:3]))
 
     if discussion_mode == "debate":
-        detail_bits.append("members questioning rules, fairness, or the reasoning behind decisions")
+        detail_bits.append("members challenging the stated rules or reasoning")
     elif discussion_mode == "coordination":
         detail_bits.append("messages focused on updates, follow-ups, and next steps")
     elif sentiment_label != "mostly neutral":

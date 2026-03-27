@@ -30,6 +30,10 @@ def main():
     parser.add_argument("-o", "--output", default="reports", help="Directory to save generated reports (default: reports)")
     parser.add_argument("-u", "--users", nargs="+", help="Specific users to generate reports for (default: all)")
     parser.add_argument("--fast", action="store_true", help="Skip ML model inference (faster processing, falls back to TextBlob for sentiment)")
+    parser.add_argument(
+        "--local-summary-model",
+        help="Optional local instruct model for monthly summaries, e.g. Qwen/Qwen2.5-7B-Instruct",
+    )
 
     args = parser.parse_args()
 
@@ -37,12 +41,14 @@ def main():
         print(f"Error: Chat file '{args.chat_file}' not found.")
         sys.exit(1)
 
-    if args.fast:
-        try:
-            from whatsapp_analyzer import ml_models
+    try:
+        from whatsapp_analyzer import ml_models
+        if args.fast:
             ml_models.FAST_MODE = True
-        except ImportError:
-            pass
+        if args.local_summary_model:
+            ml_models.set_local_summary_model(args.local_summary_model)
+    except ImportError:
+        pass
 
     setup_fonts()
 

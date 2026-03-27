@@ -8,14 +8,18 @@ Dependencies (all optional):
     sentence-transformers - for MiniLM sentence embeddings
     langdetect            - for language detection
 """
+import os
 
 # Set to True via run.py --fast flag to skip all model inference
 FAST_MODE = False
+LOCAL_SUMMARY_MODEL_NAME = os.getenv("WHATSAPP_ANALYZER_LOCAL_SUMMARY_MODEL", "").strip() or None
 
 # Lazy singleton state: None = not yet attempted, False = unavailable/failed
 _sentiment_pipeline = None       # cardiffnlp/twitter-roberta-base-sentiment-latest
 _hindi_sentiment_pipeline = None  # cardiffnlp/twitter-xlm-roberta-base-sentiment
 _sentence_model = None            # all-MiniLM-L6-v2
+_summary_pipeline = None
+_summary_pipeline_model_name = None
 
 # Map model output labels to polarity in [-1.0, 1.0]
 _LABEL_TO_SIGN = {
@@ -93,6 +97,43 @@ def get_sentence_model():
             _sentence_model = False
             return None
     return _sentence_model
+
+
+def set_local_summary_model(model_name):
+    global LOCAL_SUMMARY_MODEL_NAME, _summary_pipeline, _summary_pipeline_model_name
+    LOCAL_SUMMARY_MODEL_NAME = str(model_name).strip() or None
+    _summary_pipeline = None
+    _summary_pipeline_model_name = None
+
+
+def get_local_summary_pipeline():
+    """
+    Lazy-load an optional local instruct model for summary generation.
+    Returns None unless a model name was explicitly configured.
+    """
+    global _summary_pipeline, _summary_pipeline_model_name
+
+    if FAST_MODE or not LOCAL_SUMMARY_MODEL_NAME:
+        return None
+    if _summary_pipeline is False and _summary_pipeline_model_name == LOCAL_SUMMARY_MODEL_NAME:
+        return None
+    if _summary_pipeline is not None and _summary_pipeline_model_name == LOCAL_SUMMARY_MODEL_NAME:
+        return _summary_pipeline
+
+    try:
+        from transformers import pipeline as hf_pipeline
+        _summary_pipeline = hf_pipeline(
+            "text-generation",
+            model=LOCAL_SUMMARY_MODEL_NAME,
+            tokenizer=LOCAL_SUMMARY_MODEL_NAME,
+            truncation=True,
+        )
+        _summary_pipeline_model_name = LOCAL_SUMMARY_MODEL_NAME
+    except Exception:
+        _summary_pipeline = False
+        _summary_pipeline_model_name = LOCAL_SUMMARY_MODEL_NAME
+        return None
+    return _summary_pipeline
 
 
 def detect_language(text):
@@ -183,6 +224,32 @@ def get_sentence_embeddings(texts):
         return None
     try:
         return model.encode(texts, show_progress_bar=False)
+    except Exception:
+        return None
+
+
+def generate_local_summary(prompt, max_new_tokens=120):
+    """
+    Generate a concise summary with an optional local instruct model.
+    Returns None if no local summary model is configured or inference fails.
+    """
+    pipeline = get_local_summary_pipeline()
+    if pipeline is None:
+        return None
+
+    try:
+        result = pipeline(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            temperature=None,
+            return_full_text=False,
+            pad_token_id=getattr(getattr(pipeline, "tokenizer", None), "eos_token_id", None),
+        )
+        if not result:
+            return None
+        text = result[0].get("generated_text", "").strip()
+        return text or None
     except Exception:
         return None
 
