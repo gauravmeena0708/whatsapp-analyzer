@@ -17,6 +17,18 @@ from .analysis_utils import basic_stats
 from .constants import html_template, index_template
 from .ml_models import get_sentence_embeddings, predict_sentiment
 
+SUMMARY_NOISE_WORDS = {
+    "iit", "delhi", "email", "body", "faculty", "advisor", "warden", "hostel",
+    "hostels", "dronagiri", "saptagiri", "joined", "community", "group", "message",
+    "media", "omitted", "official", "subject", "greetings", "residents", "resident",
+    "start", "end", "dean", "addressed", "mail"
+}
+SUMMARY_TOPIC_HINTS = {
+    "mess", "veg", "non", "food", "navratri", "egg", "eggs", "chicken", "meat",
+    "rule", "rules", "festival", "students", "staff", "allowed", "allow", "ban",
+    "special", "menus", "kitchen", "fair", "transparency", "international"
+}
+
 
 def _safe_float(value):
     try:
@@ -353,9 +365,11 @@ def _extract_top_keywords(messages, limit=3):
     counter = Counter()
     for message in messages:
         cleaned = clean_message(str(message)).casefold()
+        if len(cleaned) > 500:
+            continue
         words = re.findall(r"\b[a-zA-Z][a-zA-Z0-9']{2,}\b", cleaned)
         for word in words:
-            if word not in stop_words:
+            if word not in stop_words and word not in SUMMARY_NOISE_WORDS:
                 counter[word] += 1
     return [word for word, _ in counter.most_common(limit)]
 
@@ -365,6 +379,52 @@ def _extract_top_emojis(messages, limit=3):
     for message in messages:
         counter.update(extract_emojis(str(message)))
     return [emoji for emoji, _ in counter.most_common(limit)]
+
+
+def _extract_top_phrases(messages, limit=4):
+    bigrams = Counter()
+    trigrams = Counter()
+
+    for message in messages:
+        cleaned = clean_message(str(message)).casefold()
+        if len(cleaned) > 500:
+            continue
+        words = re.findall(r"\b[a-zA-Z][a-zA-Z0-9']*\b", cleaned)
+        words = [
+            word for word in words
+            if word not in stop_words and word not in SUMMARY_NOISE_WORDS and len(word) > 2
+        ]
+
+        for idx in range(len(words) - 1):
+            bigrams[" ".join(words[idx:idx + 2])] += 1
+        for idx in range(len(words) - 2):
+            trigrams[" ".join(words[idx:idx + 3])] += 1
+
+    ranked = []
+    for phrase, count in trigrams.most_common(limit * 2):
+        if count >= 2:
+            ranked.append((phrase, count))
+    for phrase, count in bigrams.most_common(limit * 3):
+        if count >= 2:
+            ranked.append((phrase, count))
+
+    seen = set()
+    phrases = []
+    for phrase, _ in sorted(ranked, key=lambda item: (-item[1], -len(item[0]))):
+        if phrase in seen:
+            continue
+        phrase_words = phrase.split()
+        if not phrase_words:
+            continue
+        if all(word in SUMMARY_NOISE_WORDS for word in phrase_words):
+            continue
+        if any(phrase in kept or kept in phrase for kept in phrases):
+            continue
+        phrases.append(phrase)
+        seen.add(phrase)
+        if len(phrases) >= limit:
+            break
+    return phrases
 
 
 def _build_periodic_topic_analysis(df, periods=8):
@@ -423,6 +483,187 @@ def _select_representative_message(messages, max_candidates=40):
     return candidates[0]
 
 
+def _cluster_messages_by_topic(messages, max_messages=120, similarity_threshold=0.58):
+    cleaned_messages = []
+    seen_messages = set()
+    for message in messages:
+        cleaned = clean_message(str(message)).strip()
+        lowered = cleaned.casefold()
+        if not cleaned or lowered == "<media omitted>":
+            continue
+        if len(cleaned) < 12:
+            continue
+        if len(cleaned) > 500:
+            continue
+        if lowered in seen_messages:
+            continue
+        seen_messages.add(lowered)
+        cleaned_messages.append(cleaned)
+
+    if not cleaned_messages:
+        return []
+
+    cleaned_messages = sorted(cleaned_messages, key=lambda text: abs(len(text) - 140))[:max_messages]
+    embeddings = get_sentence_embeddings(cleaned_messages)
+
+    if embeddings is None or len(cleaned_messages) < 6:
+        return [cleaned_messages]
+
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    normalized = embeddings / norms
+
+    clusters = []
+    centroids = []
+
+    for idx, vector in enumerate(normalized):
+        if not centroids:
+            clusters.append([cleaned_messages[idx]])
+            centroids.append(vector.copy())
+            continue
+
+        similarities = [float(np.dot(vector, centroid)) for centroid in centroids]
+        best_idx = int(np.argmax(similarities))
+        if similarities[best_idx] >= similarity_threshold:
+            clusters[best_idx].append(cleaned_messages[idx])
+            centroid_matrix = get_sentence_embeddings(clusters[best_idx])
+            if centroid_matrix is not None and len(centroid_matrix):
+                centroid = np.mean(centroid_matrix, axis=0)
+                centroid_norm = np.linalg.norm(centroid)
+                centroids[best_idx] = centroid / centroid_norm if centroid_norm else centroid
+        else:
+            clusters.append([cleaned_messages[idx]])
+            centroids.append(vector.copy())
+
+    clusters.sort(key=len, reverse=True)
+    return clusters
+
+
+def _summarize_topic_label(messages):
+    phrases = _extract_top_phrases(messages, limit=3)
+    keywords = _extract_top_keywords(messages, limit=4)
+
+    for phrase in phrases:
+        if "non veg" in phrase or "veg" in phrase or "mess" in phrase or "navratri" in phrase:
+            if "non veg" in phrase:
+                context_words = set(keywords) | set(" ".join(phrases).split())
+                if "mess" in context_words and "navratri" in context_words:
+                    return "non veg food in the mess during navratri", phrases, keywords
+                if "mess" in context_words:
+                    return "non veg food in the mess", phrases, keywords
+            return phrase, phrases, keywords
+
+    if phrases:
+        return ", ".join(phrases[:2]), phrases, keywords
+    if keywords:
+        if {"mess", "veg"} & set(keywords):
+            if {"non", "veg", "mess", "navratri"} <= set(keywords):
+                return "non veg food in the mess during navratri", [], keywords
+            if {"non", "veg", "mess"} <= set(keywords):
+                return "non veg food in the mess", [], keywords
+            lead = [word for word in ("non", "veg", "mess", "navratri", "food") if word in keywords]
+            if lead:
+                return ", ".join(lead[:3]), [], keywords
+        return ", ".join(keywords[:3]), [], keywords
+    return "general chat", [], keywords
+
+
+def _pick_supporting_phrases(phrases, keywords, limit=2):
+    chosen = []
+    keyword_set = set(keywords)
+    for phrase in phrases:
+        words = set(phrase.split())
+        if not (words & SUMMARY_TOPIC_HINTS or words & keyword_set):
+            continue
+        if phrase in chosen:
+            continue
+        chosen.append(phrase)
+        if len(chosen) >= limit:
+            break
+    return chosen
+
+
+def _classify_discussion_mode(messages):
+    if not messages:
+        return "general"
+
+    disagreement_markers = (
+        "should", "shouldn't", "shouldnt", "why", "how", "issue", "problem", "fair",
+        "allowed", "ban", "rule", "true", "status", "logic", "protest", "transparency",
+        "confirmed", "really", "seriously", "what is", "not fair", "lack of"
+    )
+    planning_markers = (
+        "meet", "meeting", "schedule", "tomorrow", "today", "come", "send", "share",
+        "join", "talk", "talked", "call", "status", "update"
+    )
+    celebratory_markers = (
+        "happy birthday", "hbd", "congrats", "congratulations", "celebrate",
+        "party", "best wishes", "many happy returns"
+    )
+
+    text = " ".join(message.casefold() for message in messages[:80])
+    question_count = sum(message.count("?") for message in messages[:80])
+    disagreement_hits = sum(text.count(marker) for marker in disagreement_markers)
+    planning_hits = sum(text.count(marker) for marker in planning_markers)
+    celebratory_hits = sum(text.count(marker) for marker in celebratory_markers)
+
+    if celebratory_hits >= 2:
+        return "celebratory"
+    if disagreement_hits >= 5 or question_count >= max(6, len(messages) // 6):
+        return "debate"
+    if planning_hits >= 5:
+        return "coordination"
+    return "general"
+
+
+def _build_topic_narrative(period, messages, total_messages, sentiment_label, busiest_day,
+                           top_user=None, top_user_count=0, share=0, media_count=0, link_count=0,
+                           emojis=None):
+    dominant_clusters = _cluster_messages_by_topic(messages)
+    dominant_messages = dominant_clusters[0] if dominant_clusters else []
+    dominant_label, dominant_phrases, dominant_keywords = _summarize_topic_label(dominant_messages or messages)
+    discussion_mode = _classify_discussion_mode(dominant_messages or messages)
+
+    if discussion_mode == "debate":
+        opening = f"In {period}, much of the discussion turned into a debate around {dominant_label}."
+    elif discussion_mode == "coordination":
+        opening = f"In {period}, the chat was largely about coordinating around {dominant_label}."
+    elif discussion_mode == "celebratory":
+        opening = f"In {period}, the group conversation was largely celebratory and centered on {dominant_label}."
+    else:
+        opening = f"In {period}, much of the group conversation centered on {dominant_label}."
+
+    detail_bits = []
+    if dominant_phrases:
+        extra_phrases = _pick_supporting_phrases(dominant_phrases[1:], dominant_keywords, limit=2)
+        if extra_phrases:
+            detail_bits.append("recurring threads such as " + ", ".join(extra_phrases))
+    elif dominant_keywords:
+        detail_bits.append("recurring references to " + ", ".join(dominant_keywords[:3]))
+
+    if discussion_mode == "debate":
+        detail_bits.append("members questioning rules, fairness, or the reasoning behind decisions")
+    elif discussion_mode == "coordination":
+        detail_bits.append("messages focused on updates, follow-ups, and next steps")
+    elif sentiment_label != "mostly neutral":
+        detail_bits.append(f"the tone was {sentiment_label}")
+
+    second_sentence = ""
+    if detail_bits:
+        second_sentence = "The month featured " + " and ".join(detail_bits[:2]) + "."
+
+    metrics_bits = [f"{total_messages} messages overall", f"the busiest day was {busiest_day}"]
+    if top_user and top_user_count:
+        metrics_bits.insert(1, f"{top_user} was the most active contributor with {top_user_count} messages ({share:.0f}% of the month)")
+    if media_count or link_count:
+        metrics_bits.append(f"{media_count} media posts and {link_count} shared links")
+    if emojis:
+        metrics_bits.append("common emoji signals were " + " ".join(emojis[:3]))
+
+    closing = "Metrics-wise, " + ", and ".join(metrics_bits) + "."
+    return " ".join(part for part in [opening, second_sentence, closing] if part)
+
+
 def _describe_sentiment(score):
     if score >= 0.15:
         return "mostly positive"
@@ -453,8 +694,6 @@ def _build_monthly_summary_paragraphs(df, periods=6):
         emojis = _extract_top_emojis(period_df["message"], limit=3)
         media_count = int(period_df.get("mediacount", pd.Series(dtype=int)).sum()) if "mediacount" in period_df.columns else 0
         link_count = int(period_df.get("urlcount", pd.Series(dtype=int)).sum()) if "urlcount" in period_df.columns else 0
-        representative = _select_representative_message(period_df["message"])
-
         sentiment_sample = [
             predict_sentiment(str(message))[0]
             for message in period_df["message"].head(80)
@@ -467,33 +706,25 @@ def _build_monthly_summary_paragraphs(df, periods=6):
         keyword_text = ", ".join(keywords[:3]) if keywords else "no single dominant topic"
         emoji_text = " ".join(emojis) if emojis else "no standout emoji pattern"
 
-        paragraph_parts = [
-            f"In {period}, the group exchanged {total_messages} messages and the conversation was {sentiment_label}.",
-            f"{top_user} led the month with {top_user_count} messages ({share:.0f}% of the activity), and the busiest day was {busiest_day}.",
-        ]
-
-        if keywords:
-            paragraph_parts.append(f"Recurring themes included {keyword_text}.")
-        else:
-            paragraph_parts.append("The discussion did not show strong repeating keywords.")
-
-        if media_count or link_count:
-            paragraph_parts.append(f"The month included {media_count} media posts and {link_count} shared links.")
-
-        if emojis:
-            paragraph_parts.append(f"Common emoji signals were {emoji_text}.")
-
-        if representative:
-            snippet = representative[:180] + ("..." if len(representative) > 180 else "")
-            paragraph_parts.append(f"Representative message: \"{escape(snippet)}\"")
-
-        paragraph = " ".join(paragraph_parts)
+        paragraph = _build_topic_narrative(
+            period=str(period),
+            messages=period_df["message"].tolist(),
+            total_messages=total_messages,
+            sentiment_label=sentiment_label,
+            busiest_day=busiest_day,
+            top_user=top_user,
+            top_user_count=top_user_count,
+            share=share,
+            media_count=media_count,
+            link_count=link_count,
+            emojis=emojis,
+        )
         cards.append(
             f"""
             <div class="col-lg-6">
                 <div class="mini-table-card h-100">
                     <h4>{escape(str(period))}</h4>
-                    <p class="mb-0">{paragraph}</p>
+                    <p class="mb-0">{escape(paragraph)}</p>
                 </div>
             </div>
             """
@@ -574,37 +805,32 @@ def _build_user_monthly_summary_paragraphs(df_user, periods=6):
     cards = []
     for period, period_df in reversed(groups[-periods:]):
         total_messages = len(period_df)
-        keywords = _extract_top_keywords(period_df["message"], limit=4)
         emojis = _extract_top_emojis(period_df["message"], limit=3)
         media_count = int(period_df["mediacount"].sum()) if "mediacount" in period_df.columns else 0
         link_count = int(period_df["urlcount"].sum()) if "urlcount" in period_df.columns else 0
         busiest_day = period_df["date"].value_counts().idxmax().strftime("%b %d")
-        representative = _select_representative_message(period_df["message"])
         sentiment_sample = [
             predict_sentiment(str(message))[0]
             for message in period_df["message"].head(80)
             if str(message).strip()
         ]
         sentiment_label = _describe_sentiment(float(np.mean(sentiment_sample)) if sentiment_sample else 0.0)
-        paragraph_parts = [
-            f"In {period}, this user posted {total_messages} messages and their tone was {sentiment_label}.",
-            f"The busiest day was {busiest_day}.",
-        ]
-        if keywords:
-            paragraph_parts.append(f"Recurring themes included {', '.join(keywords[:3])}.")
-        if media_count or link_count:
-            paragraph_parts.append(f"They shared {media_count} media posts and {link_count} links.")
-        if emojis:
-            paragraph_parts.append(f"Common emoji signals were {' '.join(emojis)}.")
-        if representative:
-            snippet = representative[:180] + ("..." if len(representative) > 180 else "")
-            paragraph_parts.append(f"Representative message: \"{escape(snippet)}\"")
+        paragraph = _build_topic_narrative(
+            period=str(period),
+            messages=period_df["message"].tolist(),
+            total_messages=total_messages,
+            sentiment_label=sentiment_label,
+            busiest_day=busiest_day,
+            media_count=media_count,
+            link_count=link_count,
+            emojis=emojis,
+        )
         cards.append(
             f"""
             <div class="col-lg-6">
                 <div class="mini-table-card h-100">
                     <h4>{escape(str(period))}</h4>
-                    <p class="mb-0">{' '.join(paragraph_parts)}</p>
+                    <p class="mb-0">{escape(paragraph)}</p>
                 </div>
             </div>
             """
