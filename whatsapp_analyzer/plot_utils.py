@@ -213,6 +213,9 @@ def generate_wordcloud(df, username=None):
     """Generate word cloud and return base64 image."""
     df_filtered = _filter_by_user(df, username)
 
+    if df_filtered.empty:
+        return ""
+
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     text = " ".join(msg for msg in df_filtered['clean_message'] if isinstance(msg, str) and len(msg.strip())>0)
 
@@ -239,6 +242,9 @@ def generate_wordcloud(df, username=None):
 def analyze_language_complexity(df, username=None):
     """Analyze language complexity and return base64 images."""
     df_filtered = _filter_by_user(df, username)
+
+    if df_filtered.empty:
+        return ""
 
     df_filtered['clean_message'] = df_filtered['message'].apply(lambda x: clean_message(str(x)))
     
