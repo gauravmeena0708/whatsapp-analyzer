@@ -7,7 +7,7 @@ from datetime import datetime, date, time
 import os
 import tempfile
 
-from whatsapp_analyzer.utils import df_basic_cleanup, anonymize, ANIMAL_NAMES
+from whatsapp_analyzer.utils import df_basic_cleanup, anonymize, ANIMAL_NAMES, get_yturls
 from whatsapp_analyzer.parser import Parser
 
 class TestUtils(unittest.TestCase):
@@ -289,6 +289,60 @@ class TestAnonymize(unittest.TestCase):
         output_lines = self._read_file_lines(self.output_path)
         self.assertEqual(output_lines, [], "Output file should be empty or not created if input is not found.")
 
+
+class TestGetYturls(unittest.TestCase):
+    def test_youtu_be_url(self):
+        """Test extraction of youtu.be URLs."""
+        text = "Check out this video: https://youtu.be/dQw4w9WgXcQ"
+        result = get_yturls(text)
+        self.assertEqual(len(result), 1)
+        # The pattern (https?://youtu(\.be|be\.com)\S+) captures the whole match and the internal group
+        self.assertEqual(result[0], ('https://youtu.be/dQw4w9WgXcQ', '.be'))
+
+    def test_youtube_com_url(self):
+        """Test extraction of youtube.com URLs."""
+        text = "Watch this https://youtube.com/watch?v=dQw4w9WgXcQ it's great!"
+        result = get_yturls(text)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], ('https://youtube.com/watch?v=dQw4w9WgXcQ', 'be.com'))
+
+    def test_multiple_urls(self):
+        """Test extraction of multiple YouTube URLs."""
+        text = "Here is one https://youtu.be/abc and another https://youtube.com/watch?v=def"
+        result = get_yturls(text)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], ('https://youtu.be/abc', '.be'))
+        self.assertEqual(result[1], ('https://youtube.com/watch?v=def', 'be.com'))
+
+    def test_no_url(self):
+        """Test string with no URLs."""
+        text = "This is just a normal message without any links."
+        result = get_yturls(text)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(result, [])
+
+
+    def test_other_url(self):
+        """Test string with non-YouTube URLs."""
+        text = "Check out my website https://example.com"
+        result = get_yturls(text)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(result, [])
+
+    def test_http_vs_https(self):
+        """Test both http and https are matched."""
+        text = "http://youtu.be/123 https://youtu.be/456"
+        result = get_yturls(text)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], ('http://youtu.be/123', '.be'))
+        self.assertEqual(result[1], ('https://youtu.be/456', '.be'))
+
+    def test_empty_string(self):
+        """Test with an empty string."""
+        text = ""
+        result = get_yturls(text)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(result, [])
 
 if __name__ == '__main__':
     unittest.main()
