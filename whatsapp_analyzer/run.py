@@ -1,44 +1,65 @@
-import os # For os.path.join and os.makedirs if out_dir needs creation by analyzer
-import matplotlib.pyplot as plt # For plt.rcParams
-import matplotlib.font_manager as fm # For font management
-import warnings # For warnings.warn
+import os
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import warnings
+import sys
+from .analyzer import WhatsAppAnalyzer
 
-from .analyzer import WhatsAppAnalyzer # Import the main class
+def setup_fonts():
+    """Setup emoji-compatible fonts for matplotlib."""
+    # Enumerate fonts per-file so a single malformed TTF doesn't abort the whole scan.
+    available_fonts = set()
+    for fp in fm.findSystemFonts(fontext='ttf'):
+        try:
+            available_fonts.add(fm.FontProperties(fname=fp).get_name())
+        except Exception:
+            continue
 
-# Get all installed font names
-available_fonts = {fm.FontProperties(fname=fp).get_name() for fp in fm.findSystemFonts(fontext='ttf')} # Added fontext for robustness
+    emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"]
+    selected_font = next((f for f in emoji_fonts if f in available_fonts), None)
 
-# Add an emoji-compatible font if available
-emoji_fonts = ["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"] # Added Noto
-selected_font = None
-
-for font in emoji_fonts:
-    if font in available_fonts:
-        selected_font = font
-        break
-
-if selected_font:
-    plt.rcParams["font.family"] = [selected_font, "Roboto", "DejaVu Sans", "sans-serif"]
-else:
-    warnings.warn(
-        "No emoji-compatible font found. Install 'Segoe UI Emoji', 'Apple Color Emoji', or 'Noto Color Emoji' for full emoji support."
-    )
-    plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans", "sans-serif"]
+    if selected_font:
+        plt.rcParams["font.family"] = [selected_font, "DejaVu Sans", "sans-serif"]
+    else:
+        plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
 def main():
-    """Main function to run the WhatsApp chat analysis."""
+    parser = argparse.ArgumentParser(description="WhatsApp Chat Analyzer")
+    parser.add_argument("chat_file", help="Path to the WhatsApp chat export file (txt)")
+    parser.add_argument("-o", "--output", default="reports", help="Directory to save generated reports (default: reports)")
+    parser.add_argument("-u", "--users", nargs="+", help="Specific users to generate reports for (default: all)")
+    parser.add_argument("--fast", action="store_true", help="Skip ML model inference (faster processing, falls back to TextBlob for sentiment)")
+    parser.add_argument(
+        "--local-summary-model",
+        help="Optional local instruct model for monthly summaries, e.g. Qwen/Qwen2.5-7B-Instruct",
+    )
 
-    chat_file = "../data/whatsapp_chat.txt"  # Replace with your chat file path
-    output_dir = "../data"                  # Specify output directory for reports
+    args = parser.parse_args()
 
-    # Initialize WhatsAppAnalyzer
-    analyzer = WhatsAppAnalyzer(chat_file=chat_file, out_dir=output_dir)
+    if not os.path.exists(args.chat_file):
+        print(f"Error: Chat file '{args.chat_file}' not found.")
+        sys.exit(1)
 
-    # Generate reports for all users found in the chat file
-    # The generate_report method handles iterating through users and saving files.
-    analyzer.generate_report()
+    try:
+        from whatsapp_analyzer import ml_models
+        if args.fast:
+            ml_models.FAST_MODE = True
+        if args.local_summary_model:
+            ml_models.set_local_summary_model(args.local_summary_model)
+    except ImportError:
+        pass
 
-    print(f"All reports have been generated and saved in the '{output_dir}' directory.")
+    setup_fonts()
+
+    print(f"Analyzing {args.chat_file}...")
+    try:
+        analyzer = WhatsAppAnalyzer(chat_file=args.chat_file, out_dir=args.output)
+        analyzer.generate_report(users=args.users)
+        print(f"\nAll reports have been generated and saved in the '{args.output}' directory.")
+    except Exception as e:
+        print(f"An error occurred during analysis: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
