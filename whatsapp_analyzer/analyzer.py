@@ -10,6 +10,7 @@ import numpy as np
 from .parser import Parser
 from .utils import (
     df_basic_cleanup,
+    validate_path,
 )
 from .plot_utils import plot_user_relationship_graph, render_chartjs, clean_message, extract_emojis
 from .constants import stop_words
@@ -109,14 +110,21 @@ def _normalize_birthday_date(raw_value):
 
 
 def _load_manual_birthdays(chat_file, out_dir, participants):
-    candidate_paths = [
-        os.path.join(os.path.dirname(os.path.abspath(chat_file)), "birthdays.json"),
-        os.path.join(os.path.dirname(os.path.abspath(chat_file)), "birthdays.csv"),
-        os.path.join(os.path.abspath(out_dir), "birthdays.json"),
-        os.path.join(os.path.abspath(out_dir), "birthdays.csv"),
-        os.path.join(os.getcwd(), "birthdays.json"),
-        os.path.join(os.getcwd(), "birthdays.csv"),
+    candidate_paths = []
+    # Only add paths that are within the allowed base directory (CWD)
+    potential_bases = [
+        os.path.dirname(os.path.abspath(chat_file)),
+        os.path.abspath(out_dir),
+        os.getcwd()
     ]
+
+    for base in potential_bases:
+        for filename in ["birthdays.json", "birthdays.csv"]:
+            try:
+                candidate_paths.append(validate_path(os.path.join(base, filename)))
+            except ValueError:
+                continue
+
     participant_lookup = {name.casefold(): name for name in participants}
     matched = []
     unmatched = []
@@ -1204,8 +1212,8 @@ def _build_birthday_rows(manual_birthdays, inferred_birthdays):
 
 class WhatsAppAnalyzer:
     def __init__(self, chat_file, out_dir="."):
-        self.chat_file = chat_file
-        self.out_dir = out_dir
+        self.chat_file = validate_path(chat_file)
+        self.out_dir = validate_path(out_dir)
         self.parser = Parser(self.chat_file)
         self.df = df_basic_cleanup(self.parser.parse_chat_data())
 
