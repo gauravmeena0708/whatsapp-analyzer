@@ -5,15 +5,20 @@ import shutil
 
 from whatsapp_analyzer.analyzer import WhatsAppAnalyzer
 
+# Base directory for all temporary test files (must be within project root)
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class TestAnalyzerIntegration(unittest.TestCase):
 
     def setUp(self):
-        # Create a temporary directory for output reports
-        self.test_out_dir = tempfile.mkdtemp()
+        # Create a temporary directory for output reports within the project tree
+        self.test_out_dir = tempfile.mkdtemp(dir=_TESTS_DIR)
 
-        # Create a temporary chat file
-        self.chat_fd, self.chat_file_path = tempfile.mkstemp(suffix=".txt", text=True)
+        # Create a temporary chat file within the project tree
+        self.chat_fd, self.chat_file_path = tempfile.mkstemp(
+            suffix=".txt", text=True, dir=_TESTS_DIR
+        )
 
         # Write some sample chat data that the Parser can handle
         sample_chat = [
@@ -21,7 +26,7 @@ class TestAnalyzerIntegration(unittest.TestCase):
             "10/10/22, 10:05 AM - Bob: Hi Alice.\n",
             "10/10/22, 10:10 AM - Alice: How are you doing? 😊\n",
             "10/10/22, 10:15 AM - Bob: I am doing great, thanks!\n",
-            "10/10/22, 10:20 AM - System: Alice changed the group icon\n"
+            "10/10/22, 10:20 AM - System: Alice changed the group icon\n",
         ]
 
         with open(self.chat_file_path, "w", encoding="utf-8") as f:
@@ -34,7 +39,7 @@ class TestAnalyzerIntegration(unittest.TestCase):
             os.remove(self.chat_file_path)
 
         # Clean up the temporary output directory
-        shutil.rmtree(self.test_out_dir)
+        shutil.rmtree(self.test_out_dir, ignore_errors=True)
 
     def test_analyzer_integration(self):
         """
@@ -42,7 +47,6 @@ class TestAnalyzerIntegration(unittest.TestCase):
         Initializes the analyzer with a real (temporary) file and output directory,
         runs generate_report, and verifies the generated HTML files.
         """
-        # Initialize the analyzer
         analyzer = WhatsAppAnalyzer(self.chat_file_path, out_dir=self.test_out_dir)
 
         # Verify basic initialization and parsing
@@ -76,7 +80,7 @@ class TestAnalyzerIntegration(unittest.TestCase):
         """
         Test generating a report for a specific user, and test filename sanitization.
         """
-        # We'll append a message from a user with special characters
+        # Append a message from a user with special characters
         with open(self.chat_file_path, "a", encoding="utf-8") as f:
             f.write("10/10/22, 10:25 AM - Charlie/Chaplin*<>: Hello there!\n")
 
@@ -91,7 +95,10 @@ class TestAnalyzerIntegration(unittest.TestCase):
         expected_safe_name = "Charlie_Chaplin___"
         expected_report = os.path.join(self.test_out_dir, f"{expected_safe_name}_report.html")
 
-        self.assertTrue(os.path.exists(expected_report), f"Report for sanitized name {expected_safe_name} should be generated.")
+        self.assertTrue(
+            os.path.exists(expected_report),
+            f"Report for sanitized name {expected_safe_name} should be generated.",
+        )
 
         # Other users should not have reports generated
         self.assertFalse(os.path.exists(os.path.join(self.test_out_dir, "Alice_report.html")))
@@ -100,12 +107,12 @@ class TestAnalyzerIntegration(unittest.TestCase):
 
 class TestWhatsAppAnalyzer(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.chat_path = os.path.join(self.temp_dir.name, "chat.txt")
-        self.output_dir = os.path.join(self.temp_dir.name, "reports")
+        self.test_base_dir = tempfile.mkdtemp(dir=_TESTS_DIR)
+        self.chat_path = os.path.join(self.test_base_dir, "chat.txt")
+        self.output_dir = os.path.join(self.test_base_dir, "reports")
 
     def tearDown(self):
-        self.temp_dir.cleanup()
+        shutil.rmtree(self.test_base_dir, ignore_errors=True)
 
     def _write_chat(self, lines):
         with open(self.chat_path, "w", encoding="utf-8") as handle:
@@ -135,5 +142,5 @@ class TestWhatsAppAnalyzer(unittest.TestCase):
         self.assertIn("data:image/png;base64", html)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
