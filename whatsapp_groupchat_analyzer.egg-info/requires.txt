@@ -1,4 +1,3 @@
-beautifulsoup4
 seaborn>=0.9
 textblob
 emoji
@@ -7,8 +6,3 @@ matplotlib
 wordcloud
 nltk
 scikit-learn
-python-dateutil
-pandas
-numpy
-regex
-pdfkit

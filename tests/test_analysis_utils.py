@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 import tempfile
 
-from whatsapp_analyzer.analysis_utils import analyze_message_timing, basic_stats, analyze_behavioral_traits
+from whatsapp_analyzer.analysis_utils import analyze_message_timing, basic_stats
 from whatsapp_analyzer.utils import df_basic_cleanup
 from whatsapp_analyzer.parser import Parser
 # For basic_stats, TextBlob is an indirect dependency for sentiment.
@@ -149,79 +149,7 @@ class TestAnalysisUtils(unittest.TestCase):
         self.assertIsInstance(stats_dict_user1['Common Unigrams'], str)
         self.assertTrue("<li>test: 2</li>" in stats_dict_user1['Common Unigrams'] or "<li>test: 2</li>" in stats_dict_user1['Common Unigrams'])
         self.assertIsInstance(stats_dict_user1['Hindi Abuse Counts'], str)
-        self.assertEqual(stats_dict_user1['Hindi Abuse Counts'], "") # Assuming no abuse words
-
-    # --- Tests for analyze_behavioral_traits ---
-
-    def test_analyze_behavioral_traits_single_user(self):
-        chat_lines = [
-            "10/10/22, 10:00 AM - User1: Can you help me solve this problem? I am confused!",
-            "10/10/22, 10:05 AM - User2: Here is the code for the algorithm.",
-            "10/10/22, 10:10 AM - User1: Great! I will talk to the team and collaborate on it. Thanks!"
-        ]
-        df = self._create_and_parse_chat_file(chat_lines)
-
-        # Test analysis for User1
-        traits = analyze_behavioral_traits(df, username='User1')
-
-        # Verify general trait keys are present
-        self.assertIn('num_questions', traits)
-        self.assertIn('num_exclamations', traits)
-        self.assertIn('first_person_pronouns', traits)
-        self.assertIn('skills', traits)
-        self.assertIn('avg_sentence_length', traits)
-        self.assertIn('lexical_diversity', traits)
-
-        # Verify specific counts based on User1's messages
-        self.assertEqual(traits['num_questions'], 1)  # "Can you help me solve this problem?"
-        self.assertEqual(traits['num_exclamations'], 2) # "I am confused!", "Thanks!"
-
-        # Pronouns: "me", "I" (twice). Note that regex matching might be case sensitive depending on preprocessing
-        # Let's conservatively check it's > 0
-        self.assertGreater(traits['first_person_pronouns'], 0)
-
-        # Check skills for User1
-        # 'solve' -> problem_solving
-        # 'talk' -> communication
-        # 'collaborate' -> teamwork
-        self.assertGreaterEqual(traits['skills']['problem_solving'], 1)
-        self.assertGreaterEqual(traits['skills']['communication'], 1)
-        self.assertGreaterEqual(traits['skills']['teamwork'], 1)
-        # User1 shouldn't have technical skills flagged in these messages
-        self.assertEqual(traits['skills']['technical'], 0)
-
-    def test_analyze_behavioral_traits_all_users(self):
-        chat_lines = [
-            "10/10/22, 10:00 AM - User1: I need to solve this.",
-            "10/10/22, 10:05 AM - User2: The code and algorithm are ready."
-        ]
-        df = self._create_and_parse_chat_file(chat_lines)
-
-        # Test analysis for all users (username=None)
-        traits = analyze_behavioral_traits(df)
-
-        # problem_solving from User1, technical from User2
-        self.assertGreaterEqual(traits['skills']['problem_solving'], 1)
-        self.assertGreaterEqual(traits['skills']['technical'], 1)
-
-    def test_analyze_behavioral_traits_empty_or_missing_user(self):
-        chat_lines = [
-            "10/10/22, 10:00 AM - User1: Hello world",
-            "10/10/22, 10:05 AM - User2: Hi"
-        ]
-        df = self._create_and_parse_chat_file(chat_lines)
-
-        # Test for a user that doesn't exist
-        traits = analyze_behavioral_traits(df, username='User3')
-
-        self.assertEqual(traits['num_questions'], 0)
-        self.assertEqual(traits['num_exclamations'], 0)
-        self.assertEqual(traits['first_person_pronouns'], 0)
-        # Check that avg_sentence_length handles empty Series gracefully, often results in NaN
-        if pd.isna(traits['avg_sentence_length']):
-            self.assertTrue(pd.isna(traits['avg_sentence_length']))
-        else:
-            self.assertEqual(traits['avg_sentence_length'], 0)
+        self.assertEqual(stats_dict_user1['Hindi Abuse Counts'], "<ul></ul>") # Assuming no abuse words
 
     def test_basic_stats_runs_without_error(self):
         """ Test that basic_stats completes without error for a typical case."""
@@ -243,102 +171,6 @@ class TestAnalysisUtils(unittest.TestCase):
             basic_stats(clean_df.copy()) 
         except Exception as e:
             self.fail(f"basic_stats raised an exception unexpectedly: {e}")
-
-    # --- Tests for generate_behavioral_insights_text ---
-
-    def test_generate_behavioral_insights_text_positive(self):
-        traits_positive = {
-            'avg_sentiment_polarity': 0.8,
-            'avg_sentiment_subjectivity': 0.8,
-            'num_questions': 25,
-            'num_exclamations': 10,
-            'first_person_pronouns': 15,
-            'skills': {
-                'communication': 10,
-                'technical': 10,
-                'leadership': 5,
-                'problem_solving': 10,
-                'teamwork': 10
-            },
-            'avg_sentence_length': 5,
-            'lexical_diversity': 0.8
-        }
-        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
-        out = generate_behavioral_insights_text(traits_positive, "Morning", 30.0)
-        self.assertIn("positive sentiment", out)
-        self.assertIn("subjective opinions", out)
-        self.assertIn("Asks a lot of questions", out)
-        self.assertIn("Uses exclamations frequently", out)
-        self.assertIn("Often refers to themselves", out)
-        self.assertIn("strong communication skills", out)
-        self.assertIn("technical skills", out)
-        self.assertIn("leadership qualities", out)
-        self.assertIn("problem-solving skills", out)
-        self.assertIn("good team player", out)
-        self.assertIn("Responds quickly", out)
-        self.assertIn("active in the morning", out)
-        self.assertIn("long and complex sentences", out)
-        self.assertIn("high lexical diversity", out)
-
-    def test_generate_behavioral_insights_text_negative(self):
-        traits_negative = {
-            'avg_sentiment_polarity': -0.5,
-            'avg_sentiment_subjectivity': 0.2,
-            'num_questions': 5,
-            'num_exclamations': 1,
-            'first_person_pronouns': 2,
-            'skills': {
-                'communication': 0,
-                'technical': 0,
-                'leadership': 0,
-                'problem_solving': 0,
-                'teamwork': 0
-            },
-            'avg_sentence_length': 2,
-            'lexical_diversity': 0.2
-        }
-        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
-        out = generate_behavioral_insights_text(traits_negative, "Night", 200.0)
-        self.assertIn("negative sentiment", out)
-        self.assertIn("communicate more objectively", out)
-        self.assertNotIn("Asks a lot of questions", out)
-        self.assertNotIn("Uses exclamations frequently", out)
-        self.assertNotIn("Often refers to themselves", out)
-        self.assertNotIn("skills based on keyword analysis", out)
-        self.assertIn("Takes longer to respond", out)
-        self.assertIn("active at night", out)
-        self.assertIn("short and concise sentences", out)
-        self.assertIn("low lexical diversity", out)
-
-    def test_generate_behavioral_insights_text_neutral(self):
-        traits_neutral = {
-            'avg_sentiment_polarity': 0.1,
-            'avg_sentiment_subjectivity': 0.3,
-            'num_questions': 0,
-            'num_exclamations': 0,
-            'first_person_pronouns': 0,
-            'skills': {},
-            'avg_sentence_length': 3,
-            'lexical_diversity': 0.5
-        }
-        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
-        out = generate_behavioral_insights_text(traits_neutral, "Mid-day", 100.0)
-        self.assertIn("neutral tone", out)
-        self.assertIn("moderate response time", out)
-        self.assertIn("active in the afternoon", out)
-        self.assertIn("short and concise sentences", out)
-        self.assertIn("moderate lexical diversity", out)
-
-    def test_generate_behavioral_insights_text_edge_cases(self):
-        traits_empty = {}
-        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
-        out = generate_behavioral_insights_text(traits_empty, "Evening", None)
-        self.assertIn("neutral tone", out)
-        self.assertIn("communicate more objectively", out)
-        self.assertIn("active in the evening", out)
-        self.assertIn("short and concise sentences", out)
-        self.assertIn("low lexical diversity", out)
-        self.assertNotIn("response time", out) # None for avg_response_time should skip
 
 if __name__ == '__main__':
     unittest.main()

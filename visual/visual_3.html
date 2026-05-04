@@ -250,9 +250,6 @@
         const accent2Color = '#33c7ff';
         const accent3Color = '#ffe066';
 
-        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
         const systemActionKeywords = [
             'added', 'changed this group\'s icon', 'changed the group name',
             'pinned a message', 'left', 'removed', 'created group',
@@ -703,9 +700,11 @@
                 if (type === 'hourly') {
                     key = msg.timestamp.getHours().toString().padStart(2, '0') + ":00";
                 } else if (type === 'dayOfWeek') {
-                    key = DAYS[msg.timestamp.getDay()];
+                    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    key = days[msg.timestamp.getDay()];
                 } else if (type === 'monthly') {
-                    key = MONTHS[msg.timestamp.getMonth()] + ' ' + msg.timestamp.getFullYear();
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    key = months[msg.timestamp.getMonth()] + ' ' + msg.timestamp.getFullYear();
                 }
                 if (key) activity[key] = (activity[key] || 0) + 1;
             });
@@ -714,14 +713,13 @@
             if (type === 'hourly') {
                  sortedActivity = Object.entries(activity).sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
             } else if (type === 'dayOfWeek') {
-                sortedActivity = Object.entries(activity).sort((a,b) => DAYS.indexOf(a[0]) - DAYS.indexOf(b[0]));
+                const dayOrder = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                sortedActivity = Object.entries(activity).sort((a,b) => dayOrder.indexOf(a[0]) - dayOrder.indexOf(b[0]));
             } else if (type === 'monthly') {
                 // Sort chronologically for months
                 sortedActivity = Object.entries(activity).sort((a,b) => {
-                    const [monthA, yearA] = a[0].split(' ');
-                    const [monthB, yearB] = b[0].split(' ');
-                    const dateA = new Date(yearA, MONTHS.indexOf(monthA));
-                    const dateB = new Date(yearB, MONTHS.indexOf(monthB));
+                    const dateA = new Date(a[0].split(' ')[1], getStopWords().months.indexOf(a[0].split(' ')[0])); // A bit hacky, use proper month mapping
+                    const dateB = new Date(b[0].split(' ')[1], getStopWords().months.indexOf(b[0].split(' ')[0]));
                     return dateA - dateB;
                 });
             }
@@ -916,8 +914,8 @@
             const hindiStopWords = [ // Hinglish + common Hindi stop words
                 'hai', 'ka', 'ko', 'ki', 'ke', 'main', 'mein', 'se', 'bhi', 'hi', 'kya', 'kar', 'kr', 'nahi', 'to', 'ho', 'hon', 'kuch', 'ye', 'yeh', 'vo', 'wo', 'h', 'nhi', 'nai', 'tha', 'thi', 'the', 'aur', 'ek', 'he', 'ab', 'hua', 'hue', 'hui', 'liye', 'le', 'diya', 'dia', 'gaya', 'gyi', 'gye', 'raha', 'rahi', 'rahe', 'rha', 'rhi', 'rhe', 'wala', 'wali', 'wale', 'hoga', 'hogi', 'honge', 'jab', 'tab', 'yaha', 'waha', 'aise', 'jaise', 'jaisa', 'koi', 'sab', 'karo', 'tera', 'mera', 'aap', 'hum', 'kaise', 'liye', 'bas', 'bhai', 'yaar', 'gaya', 'gayi', 'gaye', 'baat', 'din', 'log', 'phir', 'aaj', 'kal', 'par', 'hota', 'hoti', 'hote', 'karna', 'karni', 'karne', 'kuchh', 'sirf', 'baad', 'pe', 'toh', 'bhe', 'bhi', 'msg', 'message', 'deleted', 'omitted', 'media', 'http', 'https', 'com', 'www', 'org', 'in', 'net'
             ];
-            const lowerMonths = MONTHS.map(m => m.toLowerCase());
-            return new Set([...englishStopWords, ...hindiStopWords, ...lowerMonths]);
+             const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+            return new Set([...englishStopWords, ...hindiStopWords, ...months]);
         }
 
         function wrapLabel(label, maxLength = 16) {

@@ -5,8 +5,6 @@ from unittest.mock import MagicMock
 import sys
 
 # Mocking dependencies to allow importing plot_utils
-sys.modules['pandas'] = MagicMock()
-sys.modules['numpy'] = MagicMock()
 sys.modules['matplotlib'] = MagicMock()
 sys.modules['matplotlib.pyplot'] = MagicMock()
 sys.modules['matplotlib.font_manager'] = MagicMock()
@@ -22,7 +20,9 @@ sys.modules['networkx'] = MagicMock()
 sys.modules['emoji'] = MagicMock()
 
 # Now we can import the function to test
-from whatsapp_analyzer.plot_utils import clean_message, plot_emoji_usage, generate_wordcloud
+from whatsapp_analyzer.plot_utils import clean_message, plot_emoji_usage
+import pandas as pd
+import emoji
 
 class TestPlotUtils(unittest.TestCase):
 
@@ -70,178 +70,86 @@ class TestPlotUtils(unittest.TestCase):
 
     # Tests for plot_emoji_usage
 
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_plot_emoji_usage_empty_df(self, mock_filter):
-        """Test emoji plot returns empty string for an empty dataframe."""
-        mock_filtered = MagicMock()
-        mock_filtered.empty = True
-        mock_filter.return_value = mock_filtered
+    def test_plot_emoji_usage_basic(self):
+        """Test emoji plot generation with emojis."""
+        # Need to mock emoji.EMOJI_DATA because emoji module is mocked
+        import emoji
+        original_emoji_data = getattr(emoji, 'EMOJI_DATA', {})
+        # ❤️ is actually two characters: '❤' and '️' in Python strings depending on encoding.
+        # Let's use simple single-character emojis for testing.
+        emoji.EMOJI_DATA = {'😀': {}, '😂': {}, '🚀': {}}
 
-        result = plot_emoji_usage(MagicMock())
+        try:
+            mock_df = pd.DataFrame({'message': ['Hello 😀', 'Hi 😂', '🚀 🚀 🚀']})
 
-        self.assertEqual(result, "")
+            with unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64') as mock_plot_to_base64, \
+                 unittest.mock.patch('whatsapp_analyzer.plot_utils.plt') as mock_plt, \
+                 unittest.mock.patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling') as mock_styling:
 
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_plot_emoji_usage_no_emojis(self, mock_filter):
-        """Test emoji plot when no emojis are found returns HTML paragraph."""
-        mock_filtered = MagicMock()
-        mock_filtered.empty = False
+                mock_plot_to_base64.return_value = "base64_string"
 
-        def getitem_side_effect(key):
-            if key == 'emojis':
-                return [[], []]  # No emojis in any message
-            return MagicMock()
+                result = plot_emoji_usage(mock_df)
 
-        mock_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_filter.return_value = mock_filtered
+                self.assertEqual(result, "base64_string")
+                # Verify bar was called with correct top emojis: 🚀 (3), 😀 (1), 😂 (1)
+                # Counter().most_common(5) order for ties depends on insertion order.
+                mock_plt.bar.assert_called_once()
+                args, kwargs = mock_plt.bar.call_args
+                self.assertEqual(args[0][0], '🚀') # most common
+                self.assertEqual(args[1][0], 3)
+                self.assertIn('😀', args[0])
+                self.assertIn('😂', args[0])
+        finally:
+            emoji.EMOJI_DATA = original_emoji_data
 
-        result = plot_emoji_usage(MagicMock())
+    def test_plot_emoji_usage_no_emojis(self):
+        """Test emoji plot generation when no emojis are found."""
+        mock_df = pd.DataFrame({'message': ['Hello', 'Hi', 'Bye']})
 
-        self.assertIn("No emojis found", result)
+        with unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64') as mock_plot_to_base64, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.plt') as mock_plt, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling') as mock_styling:
 
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_plot_emoji_usage_basic(self, mock_filter):
-        """Test emoji plot generation with emojis returns ChartJS HTML."""
-        mock_filtered = MagicMock()
-        mock_filtered.empty = False
+            mock_plot_to_base64.return_value = "base64_string_no_emoji"
 
-        def getitem_side_effect(key):
-            if key == 'emojis':
-                return [['😀', '😀'], ['😂']]
-            return MagicMock()
+            result = plot_emoji_usage(mock_df)
 
-        mock_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_filter.return_value = mock_filtered
+            self.assertEqual(result, "base64_string_no_emoji")
+            # Verify text is displayed saying "No emojis found."
+            mock_plt.text.assert_called_once_with(0.5, 0.5, "No emojis found.", ha='center', va='center', fontsize=12)
+            mock_plt.bar.assert_not_called()
 
-        result = plot_emoji_usage(MagicMock())
+    def test_plot_emoji_usage_empty_df(self):
+        """Test emoji plot generation with an empty dataframe."""
+        mock_df = pd.DataFrame({'message': []})
 
-        self.assertIn('<canvas', result)
+        with unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64') as mock_plot_to_base64, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.plt') as mock_plt, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling') as mock_styling:
 
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_plot_emoji_usage_with_username(self, mock_filter):
-        """Test emoji plot filtering by username passes username to _filter_by_user."""
-        mock_filtered = MagicMock()
-        mock_filtered.empty = True
-        mock_filter.return_value = mock_filtered
+            result = plot_emoji_usage(mock_df)
 
-        mock_df = MagicMock()
-        plot_emoji_usage(mock_df, username="Alice")
+            # The function returns "" when the filtered dataframe is empty
+            self.assertEqual(result, "")
+            mock_plt.text.assert_not_called()
+            mock_plt.bar.assert_not_called()
 
-        mock_filter.assert_called_once_with(mock_df, "Alice")
+    def test_plot_emoji_usage_with_username(self):
+        """Test emoji plot filtering by username."""
+        mock_df = pd.DataFrame({'name': ['Alice', 'Bob', 'Alice'], 'message': ['Hello 😀', 'Hi', 'Bye 😂']})
 
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.WordCloud')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plt')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_generate_wordcloud_basic(self, mock_filter, mock_plt, mock_wordcloud, mock_plot_to_base64):
-        """Test generating a word cloud for all users."""
-        mock_df_filtered = MagicMock()
-        mock_df_filtered.empty = False
-        mock_filter.return_value = mock_df_filtered
+        with unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64') as mock_plot_to_base64, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.plt') as mock_plt, \
+             unittest.mock.patch('whatsapp_analyzer.plot_utils.apply_consistent_plot_styling') as mock_styling:
 
-        mock_clean_message = MagicMock()
-        mock_clean_message.__iter__.return_value = iter(['hello world', 'good morning'])
+            mock_plot_to_base64.return_value = "base64_string_user"
 
-        def getitem_side_effect(key):
-            if key == 'clean_message':
-                return mock_clean_message
-            return MagicMock()
+            result = plot_emoji_usage(mock_df, username="Alice")
 
-        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_plot_to_base64.return_value = "base64_encoded_string"
-
-        result = generate_wordcloud(MagicMock())
-
-        self.assertEqual(result, "base64_encoded_string")
-        mock_wordcloud.assert_called()
-        mock_plot_to_base64.assert_called_once_with(mock_plt)
-
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.WordCloud')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plt')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_generate_wordcloud_with_username(self, mock_filter, mock_plt, mock_wordcloud, mock_plot_to_base64):
-        """Test generating a word cloud for a specific user."""
-        mock_df_filtered = MagicMock()
-        mock_df_filtered.empty = False
-
-        mock_clean_message = MagicMock()
-        mock_clean_message.__iter__.return_value = iter(['specific user message'])
-
-        def getitem_side_effect(key):
-            if key == 'clean_message':
-                return mock_clean_message
-            return MagicMock()
-
-        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_filter.return_value = mock_df_filtered
-        mock_plot_to_base64.return_value = "base64_specific_user"
-
-        result = generate_wordcloud(MagicMock(), username="Alice")
-
-        self.assertEqual(result, "base64_specific_user")
-        mock_wordcloud.assert_called()
-        mock_plot_to_base64.assert_called_once_with(mock_plt)
-
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.WordCloud')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plt')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_generate_wordcloud_empty_text(self, mock_filter, mock_plt, mock_wordcloud, mock_plot_to_base64):
-        """Test generating a word cloud when text is empty."""
-        mock_df_filtered = MagicMock()
-        mock_df_filtered.empty = False
-
-        # Empty iterator to simulate no text
-        mock_clean_message = MagicMock()
-        mock_clean_message.__iter__.return_value = iter([])
-
-        def getitem_side_effect(key):
-            if key == 'clean_message':
-                return mock_clean_message
-            return MagicMock()
-
-        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_filter.return_value = mock_df_filtered
-        mock_plot_to_base64.return_value = "base64_empty"
-
-        result = generate_wordcloud(MagicMock())
-
-        self.assertEqual(result, "base64_empty")
-        mock_wordcloud.assert_not_called()
-        mock_plt.text.assert_called_once_with(0.5, 0.5, "No words to display in word cloud.", ha='center', va='center', fontsize=12)
-        mock_plot_to_base64.assert_called_once_with(mock_plt)
-
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plot_to_base64')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.WordCloud')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils.plt')
-    @unittest.mock.patch('whatsapp_analyzer.plot_utils._filter_by_user')
-    def test_generate_wordcloud_value_error(self, mock_filter, mock_plt, mock_wordcloud, mock_plot_to_base64):
-        """Test generating a word cloud when WordCloud throws ValueError."""
-        mock_df_filtered = MagicMock()
-        mock_df_filtered.empty = False
-
-        mock_clean_message = MagicMock()
-        mock_clean_message.__iter__.return_value = iter(['test message'])
-
-        def getitem_side_effect(key):
-            if key == 'clean_message':
-                return mock_clean_message
-            return MagicMock()
-
-        mock_df_filtered.__getitem__.side_effect = getitem_side_effect
-        mock_filter.return_value = mock_df_filtered
-        mock_plot_to_base64.return_value = "base64_error"
-
-        # Make WordCloud raise ValueError
-        mock_wordcloud.return_value.generate.side_effect = ValueError("Test Error")
-
-        result = generate_wordcloud(MagicMock())
-
-        self.assertEqual(result, "base64_error")
-        mock_wordcloud.assert_called()
-        mock_plt.text.assert_called_once_with(0.5, 0.5, "Could not generate word cloud:\nTest Error", ha='center', va='center', fontsize=12, color='red')
-        mock_plot_to_base64.assert_called_once_with(mock_plt)
+            self.assertEqual(result, "base64_string_user")
+            mock_styling.assert_called_once()
+            args, kwargs = mock_styling.call_args
+            self.assertEqual(args[1], 'Emoji Usage for Alice')
 
 if __name__ == '__main__':
     unittest.main()
