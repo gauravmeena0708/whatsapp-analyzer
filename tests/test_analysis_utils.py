@@ -172,5 +172,101 @@ class TestAnalysisUtils(unittest.TestCase):
         except Exception as e:
             self.fail(f"basic_stats raised an exception unexpectedly: {e}")
 
+    # --- Tests for generate_behavioral_insights_text ---
+
+    def test_generate_behavioral_insights_text_positive(self):
+        traits_positive = {
+            'avg_sentiment_polarity': 0.8,
+            'avg_sentiment_subjectivity': 0.8,
+            'num_questions': 25,
+            'num_exclamations': 10,
+            'first_person_pronouns': 15,
+            'skills': {
+                'communication': 10,
+                'technical': 10,
+                'leadership': 5,
+                'problem_solving': 10,
+                'teamwork': 10
+            },
+            'avg_sentence_length': 5,
+            'lexical_diversity': 0.8
+        }
+        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
+        out = generate_behavioral_insights_text(traits_positive, "Morning", 30.0)
+        self.assertIn("positive sentiment", out)
+        self.assertIn("subjective opinions", out)
+        self.assertIn("Asks a lot of questions", out)
+        self.assertIn("Uses exclamations frequently", out)
+        self.assertIn("Often refers to themselves", out)
+        self.assertIn("strong communication skills", out)
+        self.assertIn("technical skills", out)
+        self.assertIn("leadership qualities", out)
+        self.assertIn("problem-solving skills", out)
+        self.assertIn("good team player", out)
+        self.assertIn("Responds quickly", out)
+        self.assertIn("active in the morning", out)
+        self.assertIn("long and complex sentences", out)
+        self.assertIn("high lexical diversity", out)
+
+    def test_generate_behavioral_insights_text_negative(self):
+        traits_negative = {
+            'avg_sentiment_polarity': -0.5,
+            'avg_sentiment_subjectivity': 0.2,
+            'num_questions': 5,
+            'num_exclamations': 1,
+            'first_person_pronouns': 2,
+            'skills': {
+                'communication': 0,
+                'technical': 0,
+                'leadership': 0,
+                'problem_solving': 0,
+                'teamwork': 0
+            },
+            'avg_sentence_length': 2,
+            'lexical_diversity': 0.2
+        }
+        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
+        out = generate_behavioral_insights_text(traits_negative, "Night", 200.0)
+        self.assertIn("negative sentiment", out)
+        self.assertIn("communicate more objectively", out)
+        self.assertNotIn("Asks a lot of questions", out)
+        self.assertNotIn("Uses exclamations frequently", out)
+        self.assertNotIn("Often refers to themselves", out)
+        self.assertNotIn("skills based on keyword analysis", out)
+        self.assertIn("Takes longer to respond", out)
+        self.assertIn("active at night", out)
+        self.assertIn("short and concise sentences", out)
+        self.assertIn("low lexical diversity", out)
+
+    def test_generate_behavioral_insights_text_neutral(self):
+        traits_neutral = {
+            'avg_sentiment_polarity': 0.1,
+            'avg_sentiment_subjectivity': 0.3,
+            'num_questions': 0,
+            'num_exclamations': 0,
+            'first_person_pronouns': 0,
+            'skills': {},
+            'avg_sentence_length': 3,
+            'lexical_diversity': 0.5
+        }
+        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
+        out = generate_behavioral_insights_text(traits_neutral, "Mid-day", 100.0)
+        self.assertIn("neutral tone", out)
+        self.assertIn("moderate response time", out)
+        self.assertIn("active in the afternoon", out)
+        self.assertIn("short and concise sentences", out)
+        self.assertIn("moderate lexical diversity", out)
+
+    def test_generate_behavioral_insights_text_edge_cases(self):
+        traits_empty = {}
+        from whatsapp_analyzer.analysis_utils import generate_behavioral_insights_text
+        out = generate_behavioral_insights_text(traits_empty, "Evening", None)
+        self.assertIn("neutral tone", out)
+        self.assertIn("communicate more objectively", out)
+        self.assertIn("active in the evening", out)
+        self.assertIn("short and concise sentences", out)
+        self.assertIn("low lexical diversity", out)
+        self.assertNotIn("response time", out) # None for avg_response_time should skip
+
 if __name__ == '__main__':
     unittest.main()
