@@ -12,6 +12,7 @@ try:
 except ModuleNotFoundError:
     EMOJI_DATA = {}
 
+import os
 import pandas as pd
 import numpy as np
 import re
@@ -149,8 +150,28 @@ def df_basic_cleanup(df):
     
     return df
 
+def validate_path(path, base_dir=None):
+    """
+    Validates that a path is safe and stays within the base_dir.
+    If base_dir is not provided, it defaults to the current working directory.
+    Returns the absolute path if valid, otherwise raises a ValueError.
+    """
+    if base_dir is None:
+        base_dir = os.getcwd()
+
+    base_dir = os.path.abspath(base_dir)
+    absolute_path = os.path.abspath(path)
+
+    if not absolute_path.startswith(base_dir + os.sep) and absolute_path != base_dir:
+        raise ValueError(f"Access denied: Path '{path}' is outside of the allowed directory '{base_dir}'.")
+
+    return absolute_path
+
+
 def anonymize(input_chat_path: str, output_chat_path: str):
     """Anonymizes usernames in a WhatsApp chat file and saves it to a new file."""
+    input_chat_path = validate_path(input_chat_path)
+    output_chat_path = validate_path(output_chat_path)
     username_to_anonymous_map = {}
     user_id_counter = 0
     animal_cycle = itertools.cycle(ANIMAL_NAMES)

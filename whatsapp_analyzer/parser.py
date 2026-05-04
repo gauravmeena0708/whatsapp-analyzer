@@ -1,10 +1,11 @@
 import re
 from dateutil import parser
 import pandas as pd
+from .utils import validate_path
 
 class Parser:
     def __init__(self, file_path):
-        self.file_path = file_path
+        self.file_path = validate_path(file_path)
 
     def preprocess_lines(self, lines):
         processed_lines = []
