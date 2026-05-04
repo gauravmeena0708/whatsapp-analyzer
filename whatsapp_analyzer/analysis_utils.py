@@ -539,6 +539,48 @@ def analyze_hindi_abuse(df, username=None):
 
     return abuse_counts
 
+def _calculate_unique_words(corpus_for_unique_words):
+    vectorizer = CountVectorizer(stop_words=list(stop_words))
+    unique_words_count = 0
+    if not corpus_for_unique_words.empty:
+        try:
+            vectorizer.fit(corpus_for_unique_words)
+            unique_words_count = len(vectorizer.get_feature_names_out())
+        except ValueError:
+            unique_words_count = 0
+    return unique_words_count
+
+def _get_top_emojis(df_filtered):
+    # Top 5 Emojis (using df_filtered)
+    df_filtered['emojis_list'] = df_filtered['message'].apply(extract_emojis) # Renamed to avoid conflict with df_filtered['emoji'] from basic_cleanup
+    all_emojis_list = [emoji_item for sublist in df_filtered['emojis_list'] for emoji_item in sublist]
+    return Counter(all_emojis_list).most_common(5)
+
+def _generate_visualizations(df_orig, df_filtered, response_times, username, shared_user_relationship_graph=None):
+    user_relationship_graph_base64 = (
+        shared_user_relationship_graph
+        if shared_user_relationship_graph is not None
+        else plot_user_relationship_graph(df_orig)
+    )
+    return {
+        'Activity Heatmap': plot_activity_heatmap(df_filtered, username),
+        'Sentiment Distribution': plot_sentiment_distribution(df_filtered, username),
+        'Word Cloud': generate_wordcloud(df_filtered, username), # Uses clean_message
+        'Language Complexity': analyze_language_complexity(df_filtered, username), # Uses clean_message
+        'Response Time Distribution': plot_response_time_distribution(response_times, username),
+        'Sentiment Over Time': analyze_sentiment_over_time(df_filtered, username), # Use df_filtered
+        'Emoji Usage': plot_emoji_usage(df_filtered, username), # Uses 'emojis_list' now
+        'Sentiment Bubble': plot_sentiment_bubble(df_filtered, username),
+        'Vocabulary Diversity': plot_vocabulary_diversity(df_filtered, username), # Uses clean_message_lower
+        'Language Complexity POS': plot_language_complexity_pos(df_filtered, username),
+        'User Relationship Graph': user_relationship_graph_base64, # Graph is for all users
+        'Emotion Over Time': analyze_emotion_over_time(df_filtered, username),
+        'Most Active Hours': plot_most_active_hours(df_filtered, username),
+    }
+
+def _format_ngrams_html(ngrams):
+    return "".join([f"<li>{word[0]}: {word[1]}</li>" for word in ngrams])
+
 def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, analyzer_instance=None): # analyzer_instance is no longer needed
     """
     Calculate basic statistics about messages, including sentiment, time analysis,
@@ -553,25 +595,14 @@ def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, ana
     common_unigrams, common_bigrams, common_trigrams = _calculate_ngrams(df_filtered)
     
     # Unique words count (using df_filtered which has clean_message_lower)
-    vectorizer = CountVectorizer(stop_words=list(stop_words))
-    unique_words_count = 0
-    corpus_for_unique_words = df_filtered['clean_message_lower'].dropna()
-    if not corpus_for_unique_words.empty:
-        try:
-            word_matrix = vectorizer.fit_transform(corpus_for_unique_words)
-            unique_words_count = len(vectorizer.get_feature_names_out())
-        except ValueError: 
-            unique_words_count = 0
+    unique_words_count = _calculate_unique_words(df_filtered['clean_message_lower'].dropna())
 
     # Top 5 Emojis (using df_filtered)
-    df_filtered['emojis_list'] = df_filtered['message'].apply(extract_emojis) # Renamed to avoid conflict with df_filtered['emoji'] from basic_cleanup
-    all_emojis_list = [emoji_item for sublist in df_filtered['emojis_list'] for emoji_item in sublist]
-    top_5_emojis = Counter(all_emojis_list).most_common(5)
+    top_5_emojis = _get_top_emojis(df_filtered)
 
     # Average Sentence Length
     df_filtered['sentence_length_basic'] = df_filtered['clean_message'].apply(_sentence_count)
     avg_sentence_length = df_filtered['sentence_length_basic'].apply(lambda x: len(str(x).split()) / x if x > 0 else 0).mean()
-
 
     # Analyze message timing and get response times
     # Use df_orig here if analyze_message_timing expects the full dataframe before filtering for user
@@ -580,28 +611,7 @@ def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, ana
     robust_response_times = response_times[response_times <= 72 * 60] if not response_times.empty else response_times
     behavioral_response_time = robust_response_times.median() if not robust_response_times.empty else average_response_time
 
-    # Visualizations (ensure df_filtered is passed, not df_orig for user-specific plots)
-    activity_heatmap_base64 = plot_activity_heatmap(df_filtered, username)
-    sentiment_distribution_base64 = plot_sentiment_distribution(df_filtered, username)
-    wordcloud_base64 = generate_wordcloud(df_filtered, username) # Uses clean_message
-    language_complexity_base64 = analyze_language_complexity(df_filtered, username) # Uses clean_message
-    response_time_distribution_base64 = plot_response_time_distribution(response_times, username)
-    sentiment_over_time_base64 = analyze_sentiment_over_time(df_filtered, username) # Use df_filtered
-    emoji_usage_base64 = plot_emoji_usage(df_filtered, username) # Uses 'emojis_list' now
-    sentiment_bubble_base64 = plot_sentiment_bubble(df_filtered, username)
-    vocabulary_diversity_base64 = plot_vocabulary_diversity(df_filtered, username) # Uses clean_message_lower
-    language_complexity_pos_base64 = plot_language_complexity_pos(df_filtered, username)
-    user_relationship_graph_base64 = (
-        shared_user_relationship_graph
-        if shared_user_relationship_graph is not None
-        else plot_user_relationship_graph(df_orig)
-    ) # Graph is for all users
-    # plot_skills_radar_chart will be called after behavioral_traits # Uses clean_message
-    emotion_over_time_base64 = analyze_emotion_over_time(df_filtered, username)
-    most_active_hours_base64 = plot_most_active_hours(df_filtered, username)
-
-    # Analyze behavioral traits (using the standalone function)
-    # Pass df_filtered which already has 'clean_message' and 'clean_message_lower'
+    # Analyze behavioral traits
     behavioral_traits = analyze_behavioral_traits(df_filtered, username)
     skills_radar_chart_base64 = plot_skills_radar_chart(behavioral_traits['skills'], username)
     behavioral_insights_text = generate_behavioral_insights_text(behavioral_traits, most_active_period, behavioral_response_time)
@@ -609,7 +619,6 @@ def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, ana
     # Analyze for Hindi गाली (using the standalone function)
     # Pass df_filtered which already has 'clean_message'
     abuse_counts = analyze_hindi_abuse(df_filtered, username)
-    
     abuse_counts_html = "".join([f"<li>{escape(word)}: {count}</li>" for word, count in abuse_counts.items()])
 
     # Format n-grams as HTML list items
@@ -636,30 +645,21 @@ def basic_stats(df_orig, username=None, shared_user_relationship_graph=None, ana
         'Night Messages': night_msgs,
         'Most Active Period': most_active_period,
         'Unique Words Count': unique_words_count,
-        'Common Unigrams': common_unigrams_html, # Store HTML string
-        'Common Bigrams': common_bigrams_html,   # Store HTML string
-        'Common Trigrams': common_trigrams_html, # Store HTML string
-        'Top 5 Emojis': top_5_emojis, # Keep as list of tuples for now, will be processed in analyzer.py
+        'Common Unigrams': _format_ngrams_html(common_unigrams),
+        'Common Bigrams': _format_ngrams_html(common_bigrams),
+        'Common Trigrams': _format_ngrams_html(common_trigrams),
+        'Top 5 Emojis': top_5_emojis,
         'Average Sentence Length': avg_sentence_length,
         'Average Response Time': average_response_time,
-        'Activity Heatmap': activity_heatmap_base64,
-        'Sentiment Distribution': sentiment_distribution_base64,
-        'Word Cloud': wordcloud_base64,
-        'Language Complexity': language_complexity_base64,
-        'Response Time Distribution': response_time_distribution_base64,
-        'Sentiment Over Time': sentiment_over_time_base64,
-        'Emoji Usage': emoji_usage_base64,
-        'Sentiment Bubble': sentiment_bubble_base64,
-        'Vocabulary Diversity': vocabulary_diversity_base64,
-        'Language Complexity POS': language_complexity_pos_base64,
-        'User Relationship Graph': user_relationship_graph_base64,
         'Skills Radar Chart': skills_radar_chart_base64,
-        'Behavioral Traits': behavioral_traits, # Dictionary from analyze_behavioral_traits
-        'Emotion Over Time': emotion_over_time_base64,
-        'Behavioral Insights Text': behavioral_insights_text, # Text from generate_behavioral_insights_text
-        'Hindi Abuse Counts': abuse_counts_html, 'abuse_raw_count': sum(abuse_counts.values()), # HTML string from analyze_hindi_abuse counts
-        'Most Active Hours': most_active_hours_base64,
+        'Behavioral Traits': behavioral_traits,
+        'Behavioral Insights Text': behavioral_insights_text,
+        'Hindi Abuse Counts': abuse_counts_html,
+        'abuse_raw_count': sum(abuse_counts.values()),
     }
+
+    # Generate all visualizations and update stats dict
+    stats.update(_generate_visualizations(df_orig, df_filtered, response_times, username, shared_user_relationship_graph))
 
     return stats
 
