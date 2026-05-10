@@ -11,7 +11,7 @@ def render_chartjs(config):
     chart_id = "chart_" + uuid.uuid4().hex[:8]
     html = f'''
     <div style="position: relative; height: 300px; width: 100%;">
-        <canvas id="{chart_id}"></canvas>
+        <canvas id="{chart_id}" role="img" aria-label="Chart visualization"></canvas>
     </div>
     <script>
     document.addEventListener("DOMContentLoaded", function() {{
