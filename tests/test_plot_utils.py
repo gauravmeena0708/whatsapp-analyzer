@@ -20,6 +20,7 @@ sys.modules['nltk.corpus'] = MagicMock()
 sys.modules['networkx'] = MagicMock()
 sys.modules['emoji'] = MagicMock()
 
+sys.modules["numpy"] = MagicMock()
 # Now we can import the function to test
 from whatsapp_analyzer.plot_utils import clean_message, generate_wordcloud
 
