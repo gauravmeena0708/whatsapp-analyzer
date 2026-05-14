@@ -74,6 +74,7 @@ class TestPlotUtils(unittest.TestCase):
         """Test generating a word cloud for all users."""
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
+        mock_df_filtered.empty = False
         mock_df.copy.return_value = mock_df_filtered
 
         mock_clean_message = MagicMock()
@@ -100,6 +101,7 @@ class TestPlotUtils(unittest.TestCase):
         """Test generating a word cloud for a specific user."""
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
+        mock_df_filtered.empty = False
 
         # When df[df['name'] == username] is called
         mock_df.__getitem__.return_value.copy.return_value = mock_df_filtered
@@ -128,6 +130,7 @@ class TestPlotUtils(unittest.TestCase):
         """Test generating a word cloud when text is empty."""
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
+        mock_df_filtered.empty = False
         mock_df.copy.return_value = mock_df_filtered
 
         # Empty iterator to simulate no text
@@ -156,6 +159,7 @@ class TestPlotUtils(unittest.TestCase):
         """Test generating a word cloud when WordCloud throws ValueError."""
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
+        mock_df_filtered.empty = False
         mock_df.copy.return_value = mock_df_filtered
 
         mock_clean_message = MagicMock()

@@ -9,9 +9,19 @@ def wrap_base64_img(img_base64):
 
 def render_chartjs(config):
     chart_id = "chart_" + uuid.uuid4().hex[:8]
+
+    # Try to extract the title from the chart.js config to use as aria-label
+    aria_label = "Chart"
+    try:
+        title = config.get("options", {}).get("plugins", {}).get("title", {}).get("text", "")
+        if title:
+            aria_label = f"{title} chart"
+    except Exception:
+        pass
+
     html = f'''
     <div style="position: relative; height: 300px; width: 100%;">
-        <canvas id="{chart_id}"></canvas>
+        <canvas id="{chart_id}" role="img" aria-label="{aria_label}"></canvas>
     </div>
     <script>
     document.addEventListener("DOMContentLoaded", function() {{
