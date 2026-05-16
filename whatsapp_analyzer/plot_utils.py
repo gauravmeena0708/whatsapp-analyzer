@@ -7,11 +7,19 @@ import uuid
 def wrap_base64_img(img_base64):
     return f'<img src="data:image/png;base64,{img_base64}" alt="Plot" style="max-width: 100%; height: auto; border-radius: 8px;">'
 
-def render_chartjs(config):
+def render_chartjs(config, aria_label=None):
+    if not aria_label:
+        try:
+            aria_label = config.get("options", {}).get("plugins", {}).get("title", {}).get("text", "Data visualization chart")
+            if not aria_label:
+                aria_label = "Data visualization chart"
+        except Exception:
+            aria_label = "Data visualization chart"
+    aria_label = str(aria_label).replace('"', '&quot;')
     chart_id = "chart_" + uuid.uuid4().hex[:8]
     html = f'''
     <div style="position: relative; height: 300px; width: 100%;">
-        <canvas id="{chart_id}"></canvas>
+        <canvas id="{chart_id}" role="img" aria-label="{aria_label}"></canvas>
     </div>
     <script>
     document.addEventListener("DOMContentLoaded", function() {{
