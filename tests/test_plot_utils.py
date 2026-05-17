@@ -75,6 +75,7 @@ class TestPlotUtils(unittest.TestCase):
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
         mock_df.copy.return_value = mock_df_filtered
+        mock_df_filtered.empty = False
 
         mock_clean_message = MagicMock()
         mock_clean_message.__iter__.return_value = iter(['hello world', 'good morning'])
@@ -103,6 +104,7 @@ class TestPlotUtils(unittest.TestCase):
 
         # When df[df['name'] == username] is called
         mock_df.__getitem__.return_value.copy.return_value = mock_df_filtered
+        mock_df_filtered.empty = False
 
         mock_clean_message = MagicMock()
         mock_clean_message.__iter__.return_value = iter(['specific user message'])
@@ -129,6 +131,7 @@ class TestPlotUtils(unittest.TestCase):
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
         mock_df.copy.return_value = mock_df_filtered
+        mock_df_filtered.empty = False
 
         # Empty iterator to simulate no text
         mock_clean_message = MagicMock()
@@ -157,6 +160,7 @@ class TestPlotUtils(unittest.TestCase):
         mock_df = MagicMock()
         mock_df_filtered = MagicMock()
         mock_df.copy.return_value = mock_df_filtered
+        mock_df_filtered.empty = False
 
         mock_clean_message = MagicMock()
         mock_clean_message.__iter__.return_value = iter(['test message'])
