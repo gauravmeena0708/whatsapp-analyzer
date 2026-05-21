@@ -220,6 +220,11 @@
         analyzeButton.addEventListener('click', () => {
             const file = chatFileInput.files[0];
             if (file) {
+                const originalButtonText = analyzeButton.textContent;
+                analyzeButton.disabled = true;
+                analyzeButton.setAttribute('aria-busy', 'true');
+                analyzeButton.textContent = 'Analyzing...';
+
                 loadingIndicator.classList.remove('hidden');
                 resultsSection.classList.add('hidden');
                 errorMessageDiv.classList.add('hidden');
@@ -227,26 +232,34 @@
                 
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    try {
-                        const chatText = e.target.result;
-                        const messages = parseChat(chatText);
-                        if (messages.length === 0) {
-                            throw new Error("No messages could be parsed. Please check the file format. Expected format: 'DD/MM/YY, HH:MM AM/PM - Sender: Message' or similar common WhatsApp export formats.");
+                    setTimeout(() => {
+                        try {
+                            const chatText = e.target.result;
+                            const messages = parseChat(chatText);
+                            if (messages.length === 0) {
+                                throw new Error("No messages could be parsed. Please check the file format. Expected format: 'DD/MM/YY, HH:MM AM/PM - Sender: Message' or similar common WhatsApp export formats.");
+                            }
+                            analyzeAndDisplayChat(messages);
+                            resultsSection.classList.remove('hidden');
+                        } catch (error) {
+                            console.error("Error processing chat:", error);
+                            errorTextSpan.textContent = `Error processing chat: ${error.message}. Please ensure it's a valid WhatsApp text export.`;
+                            errorMessageDiv.classList.remove('hidden');
+                        } finally {
+                            loadingIndicator.classList.add('hidden');
+                            analyzeButton.disabled = false;
+                            analyzeButton.removeAttribute('aria-busy');
+                            analyzeButton.textContent = originalButtonText;
                         }
-                        analyzeAndDisplayChat(messages);
-                        resultsSection.classList.remove('hidden');
-                    } catch (error) {
-                        console.error("Error processing chat:", error);
-                        errorTextSpan.textContent = `Error processing chat: ${error.message}. Please ensure it's a valid WhatsApp text export.`;
-                        errorMessageDiv.classList.remove('hidden');
-                    } finally {
-                        loadingIndicator.classList.add('hidden');
-                    }
+                    }, 50); // Small timeout to allow UI to update to loading state
                 };
                 reader.onerror = () => {
                     loadingIndicator.classList.add('hidden');
                     errorTextSpan.textContent = "Error reading file.";
                     errorMessageDiv.classList.remove('hidden');
+                    analyzeButton.disabled = false;
+                    analyzeButton.removeAttribute('aria-busy');
+                    analyzeButton.textContent = originalButtonText;
                 };
                 reader.readAsText(file);
             }
