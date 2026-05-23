@@ -225,6 +225,10 @@
                 errorMessageDiv.classList.add('hidden');
                 topUsersDetailedStatsContainer.innerHTML = ''; // Clear previous user details
                 
+                analyzeButton.disabled = true;
+                analyzeButton.setAttribute('aria-busy', 'true');
+                analyzeButton.textContent = 'Analyzing...';
+
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
@@ -241,12 +245,18 @@
                         errorMessageDiv.classList.remove('hidden');
                     } finally {
                         loadingIndicator.classList.add('hidden');
+                        analyzeButton.disabled = false;
+                        analyzeButton.removeAttribute('aria-busy');
+                        analyzeButton.textContent = 'Analyze Chat';
                     }
                 };
                 reader.onerror = () => {
                     loadingIndicator.classList.add('hidden');
                     errorTextSpan.textContent = "Error reading file.";
                     errorMessageDiv.classList.remove('hidden');
+                    analyzeButton.disabled = false;
+                    analyzeButton.removeAttribute('aria-busy');
+                    analyzeButton.textContent = 'Analyze Chat';
                 };
                 reader.readAsText(file);
             }
