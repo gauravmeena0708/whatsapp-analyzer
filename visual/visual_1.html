@@ -220,6 +220,8 @@
         analyzeButton.addEventListener('click', () => {
             const file = chatFileInput.files[0];
             if (file) {
+                chatFileInput.disabled = true;
+                chatFileInput.setAttribute('aria-busy', 'true');
                 analyzeButton.disabled = true;
                 analyzeButton.setAttribute('aria-busy', 'true');
                 analyzeButton.textContent = 'Analyzing...';
@@ -244,6 +246,8 @@
                         errorMessageDiv.classList.remove('hidden');
                     } finally {
                         loadingIndicator.classList.add('hidden');
+                        chatFileInput.disabled = false;
+                        chatFileInput.removeAttribute('aria-busy');
                         analyzeButton.disabled = false;
                         analyzeButton.removeAttribute('aria-busy');
                         analyzeButton.textContent = 'Analyze Chat';
@@ -253,6 +257,8 @@
                     loadingIndicator.classList.add('hidden');
                     errorTextSpan.textContent = "Error reading file.";
                     errorMessageDiv.classList.remove('hidden');
+                    chatFileInput.disabled = false;
+                    chatFileInput.removeAttribute('aria-busy');
                     analyzeButton.disabled = false;
                     analyzeButton.removeAttribute('aria-busy');
                     analyzeButton.textContent = 'Analyze Chat';
