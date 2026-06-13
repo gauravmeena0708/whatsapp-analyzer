@@ -11,7 +11,7 @@ class TestParser(unittest.TestCase):
 
     def setUp(self):
         # Create a temporary file that can be used by multiple tests needing file operations
-        self.temp_file_handle, self.temp_file_path = tempfile.mkstemp(suffix=".txt", text=True)
+        self.temp_file_handle, self.temp_file_path = tempfile.mkstemp(suffix=".txt", text=True, dir='.')
         # Close the handle immediately so it can be opened by other processes or modes
         os.close(self.temp_file_handle)
 
