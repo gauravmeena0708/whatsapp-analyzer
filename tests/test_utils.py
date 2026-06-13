@@ -14,7 +14,7 @@ class TestUtils(unittest.TestCase):
 
     def setUp(self):
         # Create a temporary file path for chat data
-        self.temp_file_handle, self.temp_file_path = tempfile.mkstemp(suffix=".txt", text=True)
+        self.temp_file_handle, self.temp_file_path = tempfile.mkstemp(suffix=".txt", text=True, dir='.')
         os.close(self.temp_file_handle) # Close the handle, we'll open/write/close as needed in tests
 
     def tearDown(self):
@@ -146,8 +146,8 @@ class TestAnonymize(unittest.TestCase):
 
     def setUp(self):
         # Create temporary files for input and output
-        self.temp_input_file = tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8")
-        self.temp_output_file = tempfile.NamedTemporaryFile(mode="r", delete=False, encoding="utf-8")
+        self.temp_input_file = tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8", dir='.')
+        self.temp_output_file = tempfile.NamedTemporaryFile(mode="r", delete=False, encoding="utf-8", dir='.')
         
         # Store their paths
         self.input_path = self.temp_input_file.name
@@ -268,7 +268,7 @@ class TestAnonymize(unittest.TestCase):
 
     def test_input_file_not_found(self):
         # Ensure the input file does not exist
-        non_existent_input_path = "/tmp/this_file_should_definitely_not_exist_for_test.txt"
+        non_existent_input_path = os.path.abspath("this_file_should_definitely_not_exist_for_test.txt")
         if os.path.exists(non_existent_input_path):
              os.remove(non_existent_input_path) # Just in case
 
