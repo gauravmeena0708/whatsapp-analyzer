@@ -1,4 +1,4 @@
-pandas
+pandas==2.2.0
 matplotlib
 seaborn
 textblob
@@ -6,4 +6,4 @@ scikit-learn
 wordcloud
 nltk
 networkx
-python-emoji
+emoji
