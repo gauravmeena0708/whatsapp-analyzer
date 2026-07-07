@@ -9,3 +9,7 @@
 ## 2024-05-20 - Communicating Async State on Inputs
 **Learning:** While buttons trigger async operations and often receive `disabled` and `aria-busy` states, associated file inputs (like `chatFileInput`) are often overlooked. Leaving inputs enabled during async reading can allow unintended re-triggers. Adding `disabled` and `aria-busy="true"` to both the input and associated UI elements (like primary buttons or dropdowns) ensures the full interactive surface is locked down and communicates progress to assistive tech.
 **Action:** Always disable and set `aria-busy="true"` on file inputs alongside their submit buttons during asynchronous read operations, ensuring states are reverted in `finally` or `onerror` blocks.
+
+## 2026-07-07 - Native Tooltips for Disabled Elements
+**Learning:** Relying purely on visual styling (like `disabled:cursor-not-allowed`) is insufficient context for why an element is disabled. Adding a native HTML `title` attribute provides an accessible, on-hover explanation. However, it must be dynamically toggled via JavaScript to ensure it doesn't persist when the element becomes active, and error states (like `reader.onerror`) must reliably reset both the `disabled` state and the `title`.
+**Action:** Always add native `title` attributes to disabled interactive elements (buttons, selects) to explain their disabled state, and use JavaScript to dynamically remove the `title` when the element is enabled, ensuring comprehensive cleanup during error handling.
